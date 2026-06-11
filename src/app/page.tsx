@@ -9,8 +9,6 @@ import {
   Moon,
   Sun,
   Download,
-  Heart,
-  Stethoscope,
   FileText,
   Users,
   MessageSquare,
@@ -42,11 +40,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
-  HoverCard,
-  HoverCardContent,
-  HoverCardTrigger,
-} from "@/components/ui/hover-card";
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -73,52 +66,6 @@ function PatientInitial({
     >
       {initial}
     </div>
-  );
-}
-
-function PatientInitialWithHover({
-  patient,
-}: {
-  patient: (typeof allPatients)[number];
-}) {
-  const isInpatient = patient.status === "inpatient";
-  return (
-    <HoverCard openDelay={200} closeDelay={100}>
-      <HoverCardTrigger asChild>
-        <div className="cursor-default">
-          <PatientInitial
-            name={patient.basicInfo.name}
-            isActive={false}
-          />
-        </div>
-      </HoverCardTrigger>
-      <HoverCardContent className="w-48 p-3" side="bottom">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-semibold text-primary">
-            {patient.basicInfo.name.charAt(0)}
-          </div>
-          <div>
-            <div className="flex items-center gap-1.5">
-              <p className="text-sm font-medium">{patient.basicInfo.name}</p>
-              <Badge
-                variant="secondary"
-                className={cn(
-                  "text-[8px] px-1 py-0 h-3.5",
-                  isInpatient
-                    ? "bg-teal-100 text-teal-700 dark:bg-teal-900/50 dark:text-teal-300"
-                    : ""
-                )}
-              >
-                {isInpatient ? "在院" : "出院"}
-              </Badge>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {patient.basicInfo.gender} · {patient.basicInfo.age}岁 · {patient.basicInfo.department}
-            </p>
-          </div>
-        </div>
-      </HoverCardContent>
-    </HoverCard>
   );
 }
 
@@ -187,8 +134,6 @@ export default function Home() {
     URL.revokeObjectURL(url);
   };
 
-  const isInpatient = currentPatient.status === "inpatient";
-
   return (
     <TooltipProvider delayDuration={300}>
       <div className="h-screen flex flex-col bg-background">
@@ -244,54 +189,6 @@ export default function Home() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {/* Patient info badge - desktop */}
-            <div className="hidden sm:flex items-center gap-2 text-xs bg-muted/40 border border-border/50 px-3 py-1.5 rounded-lg">
-              {allPatients.length > 1 && (
-                <div className="flex -space-x-1.5">
-                  {allPatients.slice(0, 5).map((p) => (
-                    <PatientInitialWithHover key={p.id} patient={p} />
-                  ))}
-                  {allPatients.length > 5 && (
-                    <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center text-[9px] text-muted-foreground">
-                      +{allPatients.length - 5}
-                    </div>
-                  )}
-                </div>
-              )}
-              <Heart className="h-3 w-3 text-rose-500/70" />
-              <span className="font-medium text-foreground">
-                {currentPatient.basicInfo.name}
-              </span>
-              <span className="text-muted-foreground/40">|</span>
-              <Badge
-                variant="secondary"
-                className={cn(
-                  "text-[9px] px-1 py-0 h-4",
-                  isInpatient
-                    ? "bg-teal-100 text-teal-700 dark:bg-teal-900/50 dark:text-teal-300"
-                    : ""
-                )}
-              >
-                {isInpatient ? "在院" : "出院"}
-              </Badge>
-              <span className="text-muted-foreground/40">|</span>
-              <Stethoscope className="h-3 w-3 text-muted-foreground/50" />
-              <span className="text-muted-foreground">
-                住院号 {currentPatient.basicInfo.patient_no}
-              </span>
-            </div>
-            {/* Patient info badge - mobile (compact) */}
-            <div className="sm:hidden flex items-center gap-1 text-xs bg-muted/40 px-2 py-1 rounded-lg">
-              <PatientInitial
-                name={currentPatient.basicInfo.name}
-                isActive={true}
-              />
-              <Heart className="h-3 w-3 text-rose-500/70" />
-              <span className="font-medium text-foreground">
-                {currentPatient.basicInfo.name}
-              </span>
-            </div>
-
             {/* Export */}
             <Tooltip>
               <TooltipTrigger asChild>

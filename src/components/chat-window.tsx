@@ -201,7 +201,14 @@ function CodeBlock({
 function EmptyChatPlaceholder({ onQuickAction }: { onQuickAction: (text: string) => void }) {
   const chatPrompts = useChatStore((s) => s.chatPrompts);
 
-  // Group by category
+  const categoryDotColors: Record<string, string> = {
+    "分析": "bg-teal-500",
+    "诊断": "bg-purple-500",
+    "治疗": "bg-amber-500",
+    "评估": "bg-rose-500",
+  };
+
+  // Group by category for sectioned display
   const groupedPrompts = useMemo(() => {
     const groups: Record<string, ChatPrompt[]> = {};
     for (const prompt of chatPrompts) {
@@ -211,43 +218,48 @@ function EmptyChatPlaceholder({ onQuickAction }: { onQuickAction: (text: string)
     return groups;
   }, [chatPrompts]);
 
-  const categoryColors: Record<string, string> = {
-    "分析": "border-teal-200 dark:border-teal-800 hover:bg-teal-50 dark:hover:bg-teal-950/30",
-    "诊断": "border-purple-200 dark:border-purple-800 hover:bg-purple-50 dark:hover:bg-purple-950/30",
-    "治疗": "border-amber-200 dark:border-amber-800 hover:bg-amber-50 dark:hover:bg-amber-950/30",
-    "评估": "border-rose-200 dark:border-rose-800 hover:bg-rose-50 dark:hover:bg-rose-950/30",
-  };
-
   return (
-    <div className="flex flex-col items-center justify-center gap-4 py-12 text-muted-foreground">
-      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400/20 to-teal-500/20">
-        <Bot className="h-8 w-8 text-emerald-500" />
+    <div className="flex flex-col gap-4 py-6">
+      {/* Minimalist header */}
+      <div className="flex items-center gap-2 text-muted-foreground">
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10">
+          <Stethoscope className="h-4 w-4 text-emerald-500" />
+        </div>
+        <div>
+          <p className="text-sm font-medium text-foreground">选择病历数据，开始智能分析</p>
+          <p className="text-xs text-muted-foreground">点击提示词快速提问，或输入自定义问题</p>
+        </div>
       </div>
-      <div className="text-center">
-        <p className="font-medium text-foreground">AI 医疗助手</p>
-        <p className="text-sm mt-1">
-          选择左侧病历数据，点击提示词或输入问题开始分析
-        </p>
-      </div>
-      {/* Chat Prompts Grid */}
-      <div className="w-full space-y-3 mt-2">
+
+      {/* Quick prompts - horizontal rows by category */}
+      <div className="w-full space-y-2.5">
         {Object.entries(groupedPrompts).map(([category, prompts]) => {
           const Icon = PROMPT_CATEGORY_ICONS[category] ?? Sparkles;
           return (
             <div key={category}>
-              <div className="flex items-center gap-1.5 mb-1.5">
+              <div className="flex items-center gap-1.5 mb-1">
                 <Icon className="h-3 w-3 text-muted-foreground" />
-                <span className="text-[11px] font-medium text-muted-foreground">{category}</span>
+                <span className={cn(
+                  "text-[10px] font-medium px-1.5 py-0.5 rounded",
+                  category === "分析" ? "text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/30" :
+                  category === "诊断" ? "text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/30" :
+                  category === "治疗" ? "text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30" :
+                  category === "评估" ? "text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/30" :
+                  "text-muted-foreground bg-muted"
+                )}>
+                  {category}
+                </span>
               </div>
-              <div className="grid grid-cols-2 gap-1.5">
+              <div className="flex flex-wrap gap-1.5">
                 {prompts.map((prompt) => (
                   <Button
                     key={prompt.id}
                     variant="outline"
                     size="sm"
-                    className={cn("h-auto py-2 text-xs gap-1.5 justify-start text-left", categoryColors[prompt.category] ?? "")}
+                    className="h-7 text-[11px] px-2.5 rounded-full gap-1.5"
                     onClick={() => onQuickAction(prompt.content)}
                   >
+                    <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", categoryDotColors[prompt.category] ?? "bg-muted-foreground")} />
                     {prompt.title}
                   </Button>
                 ))}
@@ -266,66 +278,32 @@ function EmptyChatPlaceholder({ onQuickAction }: { onQuickAction: (text: string)
 
 function ChatPromptBar({ onQuickAction }: { onQuickAction: (text: string) => void }) {
   const chatPrompts = useChatStore((s) => s.chatPrompts);
-  const [isOpen, setIsOpen] = useState(false);
 
-  const categoryColors: Record<string, string> = {
-    "分析": "text-teal-600 dark:text-teal-400 bg-teal-100 dark:bg-teal-900/40",
-    "诊断": "text-purple-600 dark:text-purple-400 bg-purple-100 dark:bg-purple-900/40",
-    "治疗": "text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40",
-    "评估": "text-rose-600 dark:text-rose-400 bg-rose-100 dark:bg-rose-900/40",
+  const categoryDotColors: Record<string, string> = {
+    "分析": "bg-teal-500",
+    "诊断": "bg-purple-500",
+    "治疗": "bg-amber-500",
+    "评估": "bg-rose-500",
   };
 
   if (chatPrompts.length === 0) return null;
 
   return (
-    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-      <div className="border-t bg-muted/20">
-        <CollapsibleTrigger asChild>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="w-full justify-center gap-1.5 rounded-none py-1 text-xs text-muted-foreground hover:text-foreground h-7"
-          >
-            <Sparkles className="h-3 w-3" />
-            对话提示词
-            <ChevronDown className={cn("h-3 w-3 transition-transform", isOpen && "rotate-180")} />
-          </Button>
-        </CollapsibleTrigger>
-        <CollapsibleContent>
-          <div className="px-3 pb-2 space-y-2">
-            {(() => {
-              const groups: Record<string, ChatPrompt[]> = {};
-              for (const p of chatPrompts) {
-                if (!groups[p.category]) groups[p.category] = [];
-                groups[p.category].push(p);
-              }
-              return Object.entries(groups).map(([category, prompts]) => (
-                <div key={category} className="space-y-1">
-                  <div className="flex items-center gap-1.5">
-                    <span className={cn("text-[10px] font-medium px-1.5 py-0.5 rounded", categoryColors[category] ?? "text-muted-foreground bg-muted")}>
-                      {category}
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap gap-1">
-                    {prompts.map((prompt) => (
-                      <Button
-                        key={prompt.id}
-                        variant="outline"
-                        size="sm"
-                        className="h-6 text-[10px] px-2"
-                        onClick={() => onQuickAction(prompt.content)}
-                      >
-                        {prompt.title}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-              ));
-            })()}
-          </div>
-        </CollapsibleContent>
-      </div>
-    </Collapsible>
+    <div className="flex items-center gap-1.5 pb-2 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+      <Sparkles className="h-3 w-3 shrink-0 text-muted-foreground" />
+      {chatPrompts.map((prompt) => (
+        <Button
+          key={prompt.id}
+          variant="outline"
+          size="sm"
+          className="h-7 text-[11px] px-2.5 rounded-full shrink-0 gap-1.5"
+          onClick={() => onQuickAction(prompt.content)}
+        >
+          <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", categoryDotColors[prompt.category] ?? "bg-muted-foreground")} />
+          {prompt.title}
+        </Button>
+      ))}
+    </div>
   );
 }
 
@@ -783,56 +761,46 @@ export function ChatWindow({ treeData }: ChatWindowProps) {
       {/* ================================================================= */}
       {/* Chat Header                                                       */}
       {/* ================================================================= */}
-      <div className="flex items-center gap-3 border-b px-4 py-3">
-        {/* Bot Avatar */}
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 to-teal-500">
-          <Bot className="h-5 w-5 text-white" />
-        </div>
+      <div className="flex items-center gap-2 border-b px-3 py-2">
+        {/* Session manager - primary nav */}
+        <SessionManager />
 
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="font-semibold text-sm">AI 医疗助手</span>
-            <SessionManager />
-          </div>
+        {/* Context indicator - compact inline */}
+        {selectedNodes.length > 0 && (
+          <span className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+            </span>
+            {selectedNodes.length} 项数据
+          </span>
+        )}
 
-          {/* Context indicator */}
-          <div className="flex items-center gap-2 mt-0.5">
-            {selectedNodes.length > 0 && (
-              <span className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
-                <span className="relative flex h-2 w-2">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                  <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-                </span>
-                已附加 {selectedNodes.length} 项病历数据
-              </span>
-            )}
+        {/* Model badge */}
+        {modelDisplay && (
+          <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 gap-1 shrink-0">
+            <Cpu className="h-3 w-3" />
+            {modelDisplay}
+          </Badge>
+        )}
 
-            {modelDisplay && (
-              <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                <Cpu className="h-3 w-3" />
-                {modelDisplay}
-              </span>
-            )}
-          </div>
-        </div>
+        <div className="flex-1" />
 
-        {/* Message count badge */}
+        {/* Message count */}
         <Badge variant="secondary" className="text-[10px] shrink-0">
           {messages.length} 条消息
         </Badge>
 
-        {/* Action buttons */}
-        <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 text-muted-foreground hover:text-destructive"
-            title="清除聊天"
-            onClick={() => setClearConfirmOpen(true)}
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        </div>
+        {/* Clear button */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 text-muted-foreground hover:text-destructive"
+          title="清除聊天"
+          onClick={() => setClearConfirmOpen(true)}
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </Button>
       </div>
 
 

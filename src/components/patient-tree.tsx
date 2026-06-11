@@ -509,7 +509,7 @@ export function PatientTree({
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Patient list header with filter tabs */}
-      <div className="shrink-0 p-3 border-b space-y-2">
+      <div className="shrink-0 p-3 pb-0 border-b overflow-hidden">
         <div className="flex items-center justify-between">
           <div className="text-xs font-medium text-muted-foreground">患者列表</div>
           <div className="flex items-center gap-0.5">
@@ -543,8 +543,8 @@ export function PatientTree({
         </div>
 
         {/* Patient list - constrained height */}
-        <ScrollArea className="max-h-[160px]">
-          <div className="space-y-0.5">
+        <ScrollArea className="max-h-[160px] min-h-0">
+          <div className="space-y-0.5 py-2">
             {filteredPatients.map((p) => (
               <PatientListItem
                 key={p.id}

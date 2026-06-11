@@ -91,3 +91,61 @@ Stage Summary:
 - Page loads correctly, all features functional (chat, prompts, patient tree, session management)
 - ESLint passes, dev server compiles successfully (all GET / returning 200)
 - The two-phase hydration pattern is the standard approach for Zustand + SSR in Next.js App Router
+
+---
+
+Task ID: 11
+Agent: Main Agent
+Task: Fix 4 UI issues - ChatPromptBar compact display, patient list overlap, remove patient info badge, redesign chat header
+
+Work Log:
+
+Fix 1 - "对话提示词" remove collapsible, make horizontal compact display:
+- In `chat-window.tsx`, replaced `ChatPromptBar` component: removed `Collapsible`/`CollapsibleContent`/`CollapsibleTrigger` wrapper
+- Removed `isOpen` state from ChatPromptBar
+- Changed from vertical grouped layout to single horizontal scrollable row with `flex flex-nowrap overflow-x-auto`
+- Each prompt is now a small pill/chip button with category color dot + title text
+- Applied compact styling: `h-7 text-[11px] px-2.5 rounded-full shrink-0 gap-1.5`
+- Added hidden scrollbar via `[&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]`
+- Kept `Sparkles` icon as a small indicator at the start of the row
+
+Fix 2 - "患者列表" and "全部展开" overlap in left panel:
+- In `patient-tree.tsx`, restructured patient list section layout
+- Removed `space-y-2` from header div, replaced with `p-3 pb-0`
+- Added `overflow-hidden` to the patient list header container
+- Added `min-h-0` to the patient list ScrollArea
+- Added `py-2` to inner div of ScrollArea for proper spacing
+- This ensures the ScrollArea doesn't push content and controls bar stays properly separated
+
+Fix 3 - Remove patient info badge from the header:
+- In `page.tsx`, removed the desktop patient info badge block (the `hidden sm:flex` div with PatientInitialWithHover, Heart icon, name, status badge, and patient number)
+- Removed the mobile patient info badge block (the `sm:hidden` div with PatientInitial, Heart icon, and name)
+- Removed `PatientInitialWithHover` function entirely
+- Kept `PatientInitial` function (still used in mobile bottom action bar)
+- Removed unused `Heart` and `Stethoscope` imports from lucide-react
+- Removed unused `HoverCard`, `HoverCardContent`, `HoverCardTrigger` imports from shadcn/ui
+- Removed unused `isInpatient` variable
+- Header now only has: Logo + Title on the left, and Export + Settings + Theme toggle on the right
+
+Fix 4 - Redesign "AI 医疗助手" header in chat window to be horizontal and minimalist:
+- In `chat-window.tsx`, completely redesigned the chat header:
+  - Removed the large bot avatar circle (h-9 w-9)
+  - Removed "AI 医疗助手" text label (SessionManager already shows session name)
+  - Made the header a single-line compact bar: `SessionManager` on the left, then context indicator (if any), then model badge (if any), then message count, then trash button on the right
+  - Context indicator now shows compact "{n} 项数据" instead of "已附加 {n} 项病历数据"
+  - Model badge uses `Badge variant="outline"` with `Cpu` icon
+  - Clear button uses smaller `h-7 w-7` size with `h-3.5 w-3.5` icon
+- Redesigned `EmptyChatPlaceholder` to be minimalist:
+  - Removed the large centered 16x16 avatar circle with Bot icon
+  - Removed "AI 医疗助手" heading
+  - Replaced with inline icon (Stethoscope in rounded-lg bg-emerald-500/10) + text description
+  - Changed from `items-center justify-center` centered layout to left-aligned `gap-5 py-8`
+  - Text now reads "选择病历数据，开始智能分析" with subtitle "点击下方提示词快速提问，或输入自定义问题"
+
+Stage Summary:
+- Fix 1: ChatPromptBar is now a horizontal scrollable row of pill buttons with category dots; EmptyChatPlaceholder also updated to use the same pill-button style with category color dots and flex-wrap layout instead of grid-cols-2
+- Fix 2: Patient list no longer overlaps with controls bar - proper flex/overflow handling
+- Fix 3: Header is cleaner without patient info badge, only showing Logo/Title + Export/Settings/Theme
+- Fix 4: Chat header is now a compact single-line bar, empty state is minimalist and left-aligned
+- ESLint passes with no errors
+- Dev server compiles successfully
