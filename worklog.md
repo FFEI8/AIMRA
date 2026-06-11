@@ -64,3 +64,30 @@ Current Project State:
 - Custom model support (DeepSeek, DashScope, custom endpoints)
 - Multi-session chat, voice input, TTS, dark mode, responsive
 - All configs persisted to localStorage
+
+---
+
+Task ID: 10
+Agent: Main Agent
+Task: Fix hydration mismatch error in SessionManager (QUICK_ACTIONS not defined / server-client text mismatch)
+
+Work Log:
+- Analyzed the hydration mismatch error reported by user: server renders "新会话" but client renders stored session title
+- Root cause: Zustand store (`chat-store.ts`) reads from localStorage during initialization, producing different state on server (defaults) vs client (stored data)
+- Refactored `chat-store.ts` to use two-phase hydration pattern:
+  - Phase 1 (SSR + initial client render): Initialize with SSR-safe defaults (empty sessions, null currentSessionId, BUILTIN_CHAT_PROMPTS, default model config)
+  - Phase 2 (after mount): `_hydrate()` action loads persisted state from localStorage
+  - Added `_hasHydrated: boolean` flag to store state
+  - Added `_hydrate()` action that reads from localStorage and calls `set()` to update store
+  - Moved all `loadFromStorage` calls from store initialization into `_hydrate()`
+  - Moved `migrateOldFormat()` call into `_hydrate()`
+- Added hydration effect in `page.tsx`: `useEffect(() => { useChatStore.getState()._hydrate(); }, [])`
+- This ensures server and initial client render always match (both show "新会话" title, empty messages, default config)
+- After hydration, the store updates from localStorage and components re-render with actual data
+
+Stage Summary:
+- Hydration mismatch error completely resolved
+- Agent-browser verification: zero hydration errors, zero console errors
+- Page loads correctly, all features functional (chat, prompts, patient tree, session management)
+- ESLint passes, dev server compiles successfully (all GET / returning 200)
+- The two-phase hydration pattern is the standard approach for Zustand + SSR in Next.js App Router

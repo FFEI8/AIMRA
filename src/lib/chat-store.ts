@@ -303,6 +303,9 @@ interface ChatStoreState {
 
   // Model
   modelConfig: ModelConfig;
+
+  // Hydration
+  _hasHydrated: boolean;
 }
 
 interface ChatStoreActions {
@@ -342,6 +345,9 @@ interface ChatStoreActions {
   // Model
   setModelConfig: (config: Partial<ModelConfig>) => void;
 
+  // Hydration
+  _hydrate: () => void;
+
   // Internal
   _persistSessions: () => void;
   _persistModelConfig: () => void;
@@ -349,45 +355,37 @@ interface ChatStoreActions {
 }
 
 // ---------------------------------------------------------------------------
+// Helper: Compute messages from current session
+// ---------------------------------------------------------------------------
+
+function getMessagesFromSession(sessions: ChatSession[], sessionId: string | null): ChatMessage[] {
+  if (!sessionId) return [];
+  const session = sessions.find((s) => s.id === sessionId);
+  return session?.messages || [];
+}
+
+// ---------------------------------------------------------------------------
+// Default Model Config
+// ---------------------------------------------------------------------------
+
+const DEFAULT_MODEL_CONFIG: ModelConfig = {
+  provider: "default",
+  ...MODEL_PRESETS.default,
+};
+
+// ---------------------------------------------------------------------------
 // Store Implementation
 // ---------------------------------------------------------------------------
 
 export const useChatStore = create<ChatStoreState & ChatStoreActions>((set, get) => {
-  // Initialize sessions (with migration support)
-  const initialSessions = (() => {
-    const stored = loadFromStorage<ChatSession[] | null>(STORAGE_KEY_SESSIONS, null);
-    if (stored && stored.length > 0) return stored;
-    // Try migrating old format
-    const migrated = migrateOldFormat();
-    if (migrated.length > 0) {
-      saveToStorage(STORAGE_KEY_SESSIONS, migrated);
-      return migrated;
-    }
-    return [];
-  })();
-
-  const initialCurrentSessionId = loadFromStorage<string | null>(STORAGE_KEY_CURRENT_SESSION, null);
-  const initialModelConfig = loadFromStorage<ModelConfig>(STORAGE_KEY_MODEL, {
-    provider: "default",
-    ...MODEL_PRESETS.default,
-  } as ModelConfig);
-  const initialChatPrompts = loadFromStorage<ChatPrompt[]>(STORAGE_KEY_CHAT_PROMPTS, BUILTIN_CHAT_PROMPTS);
-
-  // Compute messages from current session
-  function getMessagesFromSession(sessions: ChatSession[], sessionId: string | null): ChatMessage[] {
-    if (!sessionId) return [];
-    const session = sessions.find((s) => s.id === sessionId);
-    return session?.messages || [];
-  }
-
   return {
-    // ---- State ----
-    sessions: initialSessions,
-    currentSessionId: initialCurrentSessionId,
-    messages: getMessagesFromSession(initialSessions, initialCurrentSessionId),
+    // ---- State (always initialized with SSR-safe defaults) ----
+    sessions: [],
+    currentSessionId: null,
+    messages: [],
     isLoading: false,
     systemPrompt: DEFAULT_SYSTEM_PROMPT,
-    chatPrompts: initialChatPrompts,
+    chatPrompts: BUILTIN_CHAT_PROMPTS,
     selectedNodeIds: new Set<string>(),
     leftPanelOpen: true,
     currentPatientId: null,
@@ -395,7 +393,38 @@ export const useChatStore = create<ChatStoreState & ChatStoreActions>((set, get)
     patientFilter: "all",
     statsCollapsed: false,
     searchVisible: true,
-    modelConfig: initialModelConfig,
+    modelConfig: DEFAULT_MODEL_CONFIG,
+    _hasHydrated: false,
+
+    // ---- Hydration (loads persisted state from localStorage after mount) ----
+    _hydrate: () => {
+      // Load sessions
+      const stored = loadFromStorage<ChatSession[] | null>(STORAGE_KEY_SESSIONS, null);
+      let sessions: ChatSession[] = [];
+      if (stored && stored.length > 0) {
+        sessions = stored;
+      } else {
+        // Try migrating old format
+        const migrated = migrateOldFormat();
+        if (migrated.length > 0) {
+          saveToStorage(STORAGE_KEY_SESSIONS, migrated);
+          sessions = migrated;
+        }
+      }
+
+      const currentSessionId = loadFromStorage<string | null>(STORAGE_KEY_CURRENT_SESSION, null);
+      const modelConfig = loadFromStorage<ModelConfig>(STORAGE_KEY_MODEL, DEFAULT_MODEL_CONFIG);
+      const chatPrompts = loadFromStorage<ChatPrompt[]>(STORAGE_KEY_CHAT_PROMPTS, BUILTIN_CHAT_PROMPTS);
+
+      set({
+        sessions,
+        currentSessionId,
+        messages: getMessagesFromSession(sessions, currentSessionId),
+        modelConfig,
+        chatPrompts,
+        _hasHydrated: true,
+      });
+    },
 
     // ---- Session Actions ----
     createNewSession: () => {

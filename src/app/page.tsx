@@ -135,6 +135,11 @@ export default function Home() {
   const { theme, setTheme } = useTheme();
   const [toggleHovered, setToggleHovered] = useState(false);
 
+  // Hydrate store from localStorage after mount (prevents SSR/client mismatch)
+  useEffect(() => {
+    useChatStore.getState()._hydrate();
+  }, []);
+
   // Close left panel on mobile by default
   useEffect(() => {
     if (isMobile) {
