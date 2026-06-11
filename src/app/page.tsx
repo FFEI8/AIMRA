@@ -313,16 +313,16 @@ export default function Home() {
 
         {/* Mobile Bottom Action Bar */}
         {isMobile && (
-          <div className="sm:hidden fixed bottom-0 left-0 right-0 z-30 px-3 pb-[env(safe-area-inset-bottom,8px)] pt-2">
-            <div className="frosted-glass rounded-2xl border border-border/50 shadow-lg px-3 py-2 flex items-center justify-between gap-2">
+          <div className="sm:hidden fixed bottom-0 left-0 right-0 z-30 px-3 pt-2 pb-[max(env(safe-area-inset-bottom,8px),8px)]">
+            <div className="bg-background/80 backdrop-blur-lg rounded-2xl border border-border/50 shadow-lg px-3 py-2 flex items-center justify-between gap-2">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg hover:bg-accent/50 transition-colors text-xs font-medium">
-                    <Users className="h-3.5 w-3.5 text-primary/70" />
-                    <span className="max-w-[80px] truncate">
+                  <button className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg hover:bg-accent/50 transition-colors text-xs font-medium max-w-[140px]">
+                    <Users className="h-3.5 w-3.5 shrink-0 text-primary/70" />
+                    <span className="truncate">
                       {currentPatient.basicInfo.name}
                     </span>
-                    <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                    <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="w-48">

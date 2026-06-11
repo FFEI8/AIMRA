@@ -119,7 +119,7 @@ export function SessionManager() {
           <Button
             variant="ghost"
             size="sm"
-            className="w-full justify-between gap-2 px-3 text-left font-normal"
+            className="w-auto max-w-[200px] justify-between gap-2 px-3 text-left font-normal"
           >
             <span className="flex items-center gap-2 truncate">
               <MessageSquare className="h-4 w-4 shrink-0 text-primary" />

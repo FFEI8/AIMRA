@@ -9,7 +9,6 @@ import {
   Syringe,
   FileText,
   ChevronRight,
-  Search,
   Minus,
   Bed,
   LogOut,
@@ -104,19 +103,6 @@ function hasAbnormalIndicator(node: TreeNode): "abnormal" | "positive" | null {
     const report = node.data as { items: { flag: string }[] };
     if (report.items.some((i) => i.flag === "H" || i.flag === "L"))
       return "abnormal";
-  }
-  return null;
-}
-
-function filterTree(node: TreeNode, query: string): TreeNode | null {
-  const q = query.toLowerCase();
-  if (node.label.toLowerCase().includes(q)) return node;
-  if (!node.children) return null;
-  const filtered = node.children
-    .map((c) => filterTree(c, q))
-    .filter(Boolean) as TreeNode[];
-  if (filtered.length > 0) {
-    return { ...node, children: filtered };
   }
   return null;
 }
@@ -418,7 +404,6 @@ export function PatientTree({
   const patientFilter = useChatStore((s) => s.patientFilter);
   const setPatientFilter = useChatStore((s) => s.setPatientFilter);
 
-  const [searchQuery, setSearchQuery] = useState("");
   const [allExpanded, setAllExpanded] = useState(false);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
@@ -463,11 +448,8 @@ export function PatientTree({
     }
   }, [allExpanded, allNonLeafIds]);
 
-  // Filter tree
-  const filteredTree = useMemo(() => {
-    if (!searchQuery.trim()) return treeData;
-    return filterTree(treeData, searchQuery.trim()) ?? treeData;
-  }, [treeData, searchQuery]);
+  // Tree data (no longer filtered by search)
+  const filteredTree = treeData;
 
   // Selection summary
   const selectionSummary = useMemo(() => {

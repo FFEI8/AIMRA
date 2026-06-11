@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { useChatStore, getModelDisplayInfo } from "@/lib/chat-store";
+import { useChatStore, getModelDisplayInfo, formatRelativeTime } from "@/lib/chat-store";
 import type { ModelConfig, ChatMessage, ChatPrompt } from "@/lib/chat-store";
 import { formatSelectedContext } from "@/lib/patient-data";
 import type { TreeNode, CategoryType } from "@/lib/patient-data";
@@ -18,10 +18,25 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   Bot,
   Cpu,
@@ -45,6 +60,7 @@ import {
   Pill,
   FileText,
   Loader2,
+  Keyboard,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
@@ -219,17 +235,20 @@ function EmptyChatPlaceholder({ onQuickAction }: { onQuickAction: (text: string)
   }, [chatPrompts]);
 
   return (
-    <div className="flex flex-col gap-4 py-6">
-      {/* Minimalist header */}
-      <div className="flex items-center gap-2 text-muted-foreground">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10">
-          <Stethoscope className="h-4 w-4 text-emerald-500" />
+    <div className="flex flex-col gap-4 py-6 px-2 rounded-xl bg-gradient-to-b from-muted/30 to-transparent">
+      {/* Minimalist header with animated icon */}
+      <div className="flex items-center gap-2.5 text-muted-foreground">
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500/15 to-teal-500/10 shadow-sm animate-[gradientShift_4s_ease-in-out_infinite]">
+          <Stethoscope className="h-4.5 w-4.5 text-emerald-500" />
         </div>
         <div>
           <p className="text-sm font-medium text-foreground">选择病历数据，开始智能分析</p>
           <p className="text-xs text-muted-foreground">点击提示词快速提问，或输入自定义问题</p>
         </div>
       </div>
+
+      {/* Subtle divider */}
+      <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
 
       {/* Quick prompts - horizontal rows by category */}
       <div className="w-full space-y-2.5">
@@ -252,16 +271,22 @@ function EmptyChatPlaceholder({ onQuickAction }: { onQuickAction: (text: string)
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {prompts.map((prompt) => (
-                  <Button
-                    key={prompt.id}
-                    variant="outline"
-                    size="sm"
-                    className="h-7 text-[11px] px-2.5 rounded-full gap-1.5"
-                    onClick={() => onQuickAction(prompt.content)}
-                  >
-                    <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", categoryDotColors[prompt.category] ?? "bg-muted-foreground")} />
-                    {prompt.title}
-                  </Button>
+                  <Tooltip key={prompt.id}>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-[11px] px-2.5 rounded-full gap-1.5 transition-all duration-200 hover:scale-[1.04] hover:shadow-sm active:scale-[0.98]"
+                        onClick={() => onQuickAction(prompt.content)}
+                      >
+                        <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", categoryDotColors[prompt.category] ?? "bg-muted-foreground")} />
+                        {prompt.title}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="max-w-xs">
+                      <p className="text-xs">{prompt.content}</p>
+                    </TooltipContent>
+                  </Tooltip>
                 ))}
               </div>
             </div>
@@ -292,16 +317,22 @@ function ChatPromptBar({ onQuickAction }: { onQuickAction: (text: string) => voi
     <div className="flex items-center gap-1.5 pb-2 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
       <Sparkles className="h-3 w-3 shrink-0 text-muted-foreground" />
       {chatPrompts.map((prompt) => (
-        <Button
-          key={prompt.id}
-          variant="outline"
-          size="sm"
-          className="h-7 text-[11px] px-2.5 rounded-full shrink-0 gap-1.5"
-          onClick={() => onQuickAction(prompt.content)}
-        >
-          <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", categoryDotColors[prompt.category] ?? "bg-muted-foreground")} />
-          {prompt.title}
-        </Button>
+        <Tooltip key={prompt.id}>
+          <TooltipTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-[11px] px-2.5 rounded-full shrink-0 gap-1.5"
+              onClick={() => onQuickAction(prompt.content)}
+            >
+              <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", categoryDotColors[prompt.category] ?? "bg-muted-foreground")} />
+              {prompt.title}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="max-w-xs">
+            <p className="text-xs">{prompt.content}</p>
+          </TooltipContent>
+        </Tooltip>
       ))}
     </div>
   );
@@ -331,6 +362,7 @@ export function ChatWindow({ treeData }: ChatWindowProps) {
   // Local state
   const [inputValue, setInputValue] = useState("");
   const [streamingContent, setStreamingContent] = useState("");
+  // streamingMsgId is used for internal tracking only, not for rendering
   const [streamingMsgId, setStreamingMsgId] = useState<string | null>(null);
   const [contextPreviewOpen, setContextPreviewOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
@@ -835,7 +867,7 @@ export function ChatWindow({ treeData }: ChatWindowProps) {
                     if (el) messageRefs.current.set(msg.id, el);
                   }}
                   className={cn(
-                    "group flex gap-3 px-1 py-2 rounded-lg transition-colors",
+                    "group flex gap-3 px-1 py-2 rounded-lg transition-colors animate-in fade-in-0 slide-in-from-bottom-2 duration-300",
                     isUser ? "flex-row-reverse" : "flex-row"
                   )}
                 >
@@ -904,6 +936,16 @@ export function ChatWindow({ treeData }: ChatWindowProps) {
                     {!isUser && !msg.stopped && (
                       <span className="mt-1 block text-[10px] text-muted-foreground/60">
                         {countWords(msg.content)} 字
+                        <span className="text-[10px] text-muted-foreground/40 ml-2">
+                          {formatRelativeTime(msg.timestamp)}
+                        </span>
+                      </span>
+                    )}
+
+                    {/* Timestamp (user messages) */}
+                    {isUser && (
+                      <span className="mt-1 block text-[10px] text-primary-foreground/50">
+                        {formatRelativeTime(msg.timestamp)}
                       </span>
                     )}
 
@@ -1069,32 +1111,40 @@ export function ChatWindow({ treeData }: ChatWindowProps) {
 
         <div className="flex items-end gap-2">
           {/* Mic button */}
-          <Button
-            variant="outline"
-            size="icon"
-            className={cn(
-              "h-9 w-9 shrink-0",
-              micState === "recording" && "bg-red-50 border-red-300 text-red-600 hover:bg-red-100 hover:text-red-700",
-              micState === "processing" && "opacity-50"
+          <div className="relative">
+            {micState === "recording" && (
+              <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
+                <span className="relative inline-flex h-3 w-3 rounded-full bg-red-500" />
+              </span>
             )}
-            onClick={() => {
-              if (micState === "idle") startRecording();
-              else if (micState === "recording") stopRecording();
-            }}
-            disabled={micState === "processing"}
-            title={micState === "recording" ? "停止录音" : "语音输入"}
-          >
-            {micState === "recording" ? (
-              <div className="flex items-center gap-1">
-                <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
-                <MicOff className="h-4 w-4" />
-              </div>
-            ) : micState === "processing" ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Mic className="h-4 w-4" />
-            )}
-          </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              className={cn(
+                "h-9 w-9 shrink-0",
+                micState === "recording" && "bg-red-50 border-red-300 text-red-600 hover:bg-red-100 hover:text-red-700",
+                micState === "processing" && "opacity-50"
+              )}
+              onClick={() => {
+                if (micState === "idle") startRecording();
+                else if (micState === "recording") stopRecording();
+              }}
+              disabled={micState === "processing"}
+              title={micState === "recording" ? "停止录音" : "语音输入"}
+            >
+              {micState === "recording" ? (
+                <div className="flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+                  <MicOff className="h-4 w-4" />
+                </div>
+              ) : micState === "processing" ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Mic className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
 
           {/* Recording timer */}
           {micState === "recording" && (
@@ -1150,30 +1200,27 @@ export function ChatWindow({ treeData }: ChatWindowProps) {
       </div>
 
       {/* ================================================================= */}
-      {/* Clear Chat Confirmation Dialog                                     */}
+      {/* Clear Chat Confirmation AlertDialog                                */}
       {/* ================================================================= */}
-      <Dialog open={clearConfirmOpen} onOpenChange={setClearConfirmOpen}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>确认清除聊天记录</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-muted-foreground">
-            确定要清除当前会话的所有聊天记录吗？此操作无法撤销。
-          </p>
-          <div className="flex justify-end gap-2 mt-4">
-            <Button variant="outline" size="sm" onClick={() => setClearConfirmOpen(false)}>
-              取消
-            </Button>
-            <Button
-              variant="destructive"
-              size="sm"
+      <AlertDialog open={clearConfirmOpen} onOpenChange={setClearConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认清除聊天记录</AlertDialogTitle>
+            <AlertDialogDescription>
+              确定要清除当前会话的所有聊天记录吗？此操作无法撤销。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction
               onClick={handleClear}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               清除
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* ================================================================= */}
       {/* Keyboard Shortcuts Dialog                                         */}
@@ -1181,26 +1228,23 @@ export function ChatWindow({ treeData }: ChatWindowProps) {
       <Dialog open={shortcutsOpen} onOpenChange={setShortcutsOpen}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>键盘快捷键</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <Keyboard className="h-5 w-5 text-primary" />
+              键盘快捷键
+            </DialogTitle>
           </DialogHeader>
-          <div className="space-y-2 text-sm">
+          <div className="space-y-2">
             {[
-              { keys: "Enter", desc: "发送消息" },
-              { keys: "Shift + Enter", desc: "换行" },
-              { keys: "Escape", desc: "停止生成 / 关闭" },
+              { key: "Enter", desc: "发送消息" },
+              { key: "Shift + Enter", desc: "换行" },
+              { key: "Escape", desc: "停止生成 / 取消焦点" },
+              { key: "?", desc: "显示快捷键" },
             ].map((shortcut) => (
-              <div key={shortcut.keys} className="flex items-center justify-between">
-                <span className="text-muted-foreground">{shortcut.desc}</span>
-                <div className="flex gap-1">
-                  {shortcut.keys.split(" + ").map((key) => (
-                    <kbd
-                      key={key}
-                      className="rounded border bg-muted px-2 py-0.5 text-xs font-mono"
-                    >
-                      {key}
-                    </kbd>
-                  ))}
-                </div>
+              <div key={shortcut.key} className="flex items-center justify-between py-1.5">
+                <span className="text-sm text-muted-foreground">{shortcut.desc}</span>
+                <kbd className="rounded border bg-muted px-2 py-0.5 text-xs font-mono">
+                  {shortcut.key}
+                </kbd>
               </div>
             ))}
           </div>
