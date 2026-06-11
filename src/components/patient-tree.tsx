@@ -13,10 +13,8 @@ import {
   Minus,
   Bed,
   LogOut,
-  SearchX,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -419,33 +417,10 @@ export function PatientTree({
   const clearSelection = useChatStore((s) => s.clearSelection);
   const patientFilter = useChatStore((s) => s.patientFilter);
   const setPatientFilter = useChatStore((s) => s.setPatientFilter);
-  const searchVisible = useChatStore((s) => s.searchVisible);
-  const setSearchVisible = useChatStore((s) => s.setSearchVisible);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [allExpanded, setAllExpanded] = useState(false);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
-  const [patientSearch, setPatientSearch] = useState("");
-
-  // Fetch patients from API on mount
-  const [apiPatients, setApiPatients] = useState<PatientData[] | null>(null);
-
-  useEffect(() => {
-    async function fetchPatients() {
-      try {
-        const res = await fetch("/api/patients");
-        if (res.ok) {
-          const data = await res.json();
-          // We still use the local data for full patient details
-          // The API gives us the summary, we use it to know the patient IDs to show
-          setApiPatients(patients); // fallback to local data
-        }
-      } catch {
-        // Use local data as fallback
-      }
-    }
-    fetchPatients();
-  }, [patients]);
 
   // Collect all non-leaf ids for expand all/collapse all
   const allNonLeafIds = useMemo(
@@ -518,17 +493,8 @@ export function PatientTree({
     if (patientFilter !== "all") {
       result = result.filter((p) => p.status === patientFilter);
     }
-    if (patientSearch.trim()) {
-      const q = patientSearch.toLowerCase();
-      result = result.filter(
-        (p) =>
-          p.basicInfo.name.toLowerCase().includes(q) ||
-          p.basicInfo.patient_no.toLowerCase().includes(q) ||
-          p.basicInfo.department.toLowerCase().includes(q)
-      );
-    }
     return result;
-  }, [patients, patientFilter, patientSearch]);
+  }, [patients, patientFilter]);
 
   const inpatientCount = patients.filter((p) => p.status === "inpatient").length;
   const dischargedCount = patients.filter((p) => p.status === "discharged").length;
@@ -541,9 +507,9 @@ export function PatientTree({
   }, [filteredPatients, currentPatientId]);
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full overflow-hidden">
       {/* Patient list header with filter tabs */}
-      <div className="p-3 border-b space-y-2">
+      <div className="shrink-0 p-3 border-b space-y-2">
         <div className="flex items-center justify-between">
           <div className="text-xs font-medium text-muted-foreground">患者列表</div>
           <div className="flex items-center gap-0.5">
@@ -576,8 +542,8 @@ export function PatientTree({
           </div>
         </div>
 
-        {/* Patient list */}
-        <ScrollArea className={cn("transition-all duration-300", filteredPatients.length > 5 ? "max-h-[200px]" : "max-h-none")}>
+        {/* Patient list - constrained height */}
+        <ScrollArea className="max-h-[160px]">
           <div className="space-y-0.5">
             {filteredPatients.map((p) => (
               <PatientListItem
@@ -591,73 +557,37 @@ export function PatientTree({
         </ScrollArea>
 
         {filteredPatients.length === 0 && (
-          <div className="text-center py-4 text-xs text-muted-foreground">
+          <div className="text-center py-3 text-xs text-muted-foreground">
             没有符合条件的患者
           </div>
         )}
       </div>
 
-      {/* Search & controls */}
-      <div className="p-3 border-b space-y-2">
-        <div className="flex items-center gap-2">
-          {searchVisible ? (
-            <div className="relative flex-1">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
-              <Input
-                placeholder="搜索记录..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-7 pl-8 pr-8 text-xs"
-              />
-              <Button
-                variant="ghost"
-                size="icon"
-                className="absolute right-0.5 top-1/2 -translate-y-1/2 h-6 w-6"
-                onClick={() => {
-                  setSearchVisible(false);
-                  setSearchQuery("");
-                }}
-              >
-                <SearchX className="h-3 w-3" />
-              </Button>
-            </div>
-          ) : (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 text-xs px-2 gap-1"
-              onClick={() => setSearchVisible(true)}
-            >
-              <Search className="h-3 w-3" />
-              搜索
-            </Button>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
+      {/* Controls bar (compact) */}
+      <div className="shrink-0 px-3 py-1.5 border-b flex items-center gap-2">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-6 text-[11px] px-2"
+          onClick={handleToggleAll}
+        >
+          {allExpanded ? "全部折叠" : "全部展开"}
+        </Button>
+        {totalSelected > 0 && (
           <Button
             variant="ghost"
             size="sm"
-            className="h-6 text-[11px] px-2"
-            onClick={handleToggleAll}
+            className="h-6 text-[11px] px-2 text-rose-500 hover:text-rose-600"
+            onClick={clearSelection}
           >
-            {allExpanded ? "全部折叠" : "全部展开"}
+            清除选择 ({totalSelected})
           </Button>
-          {totalSelected > 0 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 text-[11px] px-2 text-rose-500 hover:text-rose-600"
-              onClick={clearSelection}
-            >
-              清除选择 ({totalSelected})
-            </Button>
-          )}
-        </div>
+        )}
       </div>
 
       {/* Selection summary */}
       {totalSelected > 0 && (
-        <div className="px-3 py-2 border-b">
+        <div className="shrink-0 px-3 py-1.5 border-b">
           <div className="flex items-center gap-2 flex-wrap">
             {(
               Object.entries(selectionSummary) as [CategoryType, number][]
@@ -678,8 +608,8 @@ export function PatientTree({
         </div>
       )}
 
-      {/* Tree content */}
-      <ScrollArea className="flex-1">
+      {/* Tree content - takes remaining space */}
+      <ScrollArea className="flex-1 min-h-0">
         <div className="py-1">
           {filteredTree.children?.map((child) => (
             <TreeNodeItem

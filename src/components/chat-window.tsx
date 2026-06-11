@@ -10,7 +10,6 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Dialog,
@@ -26,8 +25,6 @@ import {
 import {
   Bot,
   Cpu,
-  Search,
-  Keyboard,
   Trash2,
   Send,
   StopCircle,
@@ -358,10 +355,6 @@ export function ChatWindow({ treeData }: ChatWindowProps) {
   const [streamingContent, setStreamingContent] = useState("");
   const [streamingMsgId, setStreamingMsgId] = useState<string | null>(null);
   const [contextPreviewOpen, setContextPreviewOpen] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchMatches, setSearchMatches] = useState<number[]>([]);
-  const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [micState, setMicState] = useState<"idle" | "recording" | "processing">("idle");
   const [recordingTime, setRecordingTime] = useState(0);
@@ -433,46 +426,7 @@ export function ChatWindow({ treeData }: ChatWindowProps) {
     scrollToBottom();
   }, [messages, streamingContent, scrollToBottom]);
 
-  // ---------------------------------------------------------------------------
-  // Search
-  // ---------------------------------------------------------------------------
 
-  useEffect(() => {
-    if (!searchQuery.trim()) {
-      setSearchMatches([]);
-      setCurrentMatchIndex(0);
-      return;
-    }
-    const q = searchQuery.toLowerCase();
-    const indices: number[] = [];
-    messages.forEach((msg, i) => {
-      if (msg.content.toLowerCase().includes(q)) {
-        indices.push(i);
-      }
-    });
-    setSearchMatches(indices);
-    setCurrentMatchIndex(indices.length > 0 ? 0 : 0);
-  }, [searchQuery, messages]);
-
-  const navigateMatch = useCallback(
-    (direction: "up" | "down") => {
-      if (searchMatches.length === 0) return;
-      let newIdx: number;
-      if (direction === "down") {
-        newIdx = (currentMatchIndex + 1) % searchMatches.length;
-      } else {
-        newIdx = (currentMatchIndex - 1 + searchMatches.length) % searchMatches.length;
-      }
-      setCurrentMatchIndex(newIdx);
-      const msgIdx = searchMatches[newIdx];
-      const msg = messages[msgIdx];
-      if (msg) {
-        const el = messageRefs.current.get(msg.id);
-        el?.scrollIntoView({ behavior: "smooth", block: "center" });
-      }
-    },
-    [searchMatches, currentMatchIndex, messages]
-  );
 
   // ---------------------------------------------------------------------------
   // Voice recording (mock)
@@ -680,11 +634,6 @@ export function ChatWindow({ treeData }: ChatWindowProps) {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ctrl+K: Search
-      if (e.ctrlKey && e.key === "k") {
-        e.preventDefault();
-        setSearchOpen((prev) => !prev);
-      }
       // ?: Shortcuts (only when not typing)
       if (e.key === "?" && !e.ctrlKey && !e.metaKey && !e.altKey) {
         const tag = (e.target as HTMLElement)?.tagName;
@@ -701,13 +650,12 @@ export function ChatWindow({ treeData }: ChatWindowProps) {
         if (document.activeElement instanceof HTMLElement) {
           document.activeElement.blur();
         }
-        if (searchOpen) setSearchOpen(false);
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isLoading, handleStop, searchOpen]);
+  }, [isLoading, handleStop]);
 
   // ---------------------------------------------------------------------------
   // Quick action handlers
@@ -762,33 +710,6 @@ export function ChatWindow({ treeData }: ChatWindowProps) {
       toast.error("当前浏览器不支持语音合成");
     }
   }, []);
-
-  // ---------------------------------------------------------------------------
-  // Highlight search matches in text
-  // ---------------------------------------------------------------------------
-
-  function highlightText(text: string, query: string, isCurrent: boolean): React.ReactNode {
-    if (!query.trim()) return text;
-    const idx = text.toLowerCase().indexOf(query.toLowerCase());
-    if (idx === -1) return text;
-
-    return (
-      <>
-        {text.slice(0, idx)}
-        <mark
-          className={cn(
-            "rounded-sm px-0.5",
-            isCurrent
-              ? "ring-2 ring-amber-400 bg-amber-200 dark:bg-amber-800 dark:ring-amber-500"
-              : "bg-amber-100 dark:bg-amber-900/50 ring-1 ring-amber-300 dark:ring-amber-700"
-          )}
-        >
-          {text.slice(idx, idx + query.length)}
-        </mark>
-        {text.slice(idx + query.length)}
-      </>
-    );
-  }
 
   // ---------------------------------------------------------------------------
   // Render Markdown with custom components
@@ -905,24 +826,6 @@ export function ChatWindow({ treeData }: ChatWindowProps) {
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8"
-            title="搜索 (Ctrl+K)"
-            onClick={() => setSearchOpen(!searchOpen)}
-          >
-            <Search className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            title="键盘快捷键 (?)"
-            onClick={() => setShortcutsOpen(true)}
-          >
-            <Keyboard className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
             className="h-8 w-8 text-muted-foreground hover:text-destructive"
             title="清除聊天"
             onClick={() => setClearConfirmOpen(true)}
@@ -932,57 +835,7 @@ export function ChatWindow({ treeData }: ChatWindowProps) {
         </div>
       </div>
 
-      {/* ================================================================= */}
-      {/* Search Bar                                                        */}
-      {/* ================================================================= */}
-      {searchOpen && (
-        <div className="flex items-center gap-2 border-b bg-muted/30 px-4 py-2">
-          <Search className="h-4 w-4 text-muted-foreground shrink-0" />
-          <Input
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="搜索聊天记录..."
-            className="h-7 text-xs"
-            autoFocus
-          />
-          <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">
-            {searchMatches.length > 0
-              ? `${currentMatchIndex + 1}/${searchMatches.length}`
-              : "无匹配"}
-          </span>
-          <div className="flex items-center gap-0.5 shrink-0">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6"
-              onClick={() => navigateMatch("up")}
-              disabled={searchMatches.length === 0}
-            >
-              <ChevronUp className="h-3 w-3" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6"
-              onClick={() => navigateMatch("down")}
-              disabled={searchMatches.length === 0}
-            >
-              <ChevronDown className="h-3 w-3" />
-            </Button>
-          </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6 shrink-0"
-            onClick={() => {
-              setSearchOpen(false);
-              setSearchQuery("");
-            }}
-          >
-            ✕
-          </Button>
-        </div>
-      )}
+
 
       {/* ================================================================= */}
       {/* Messages Area                                                     */}
@@ -996,10 +849,6 @@ export function ChatWindow({ treeData }: ChatWindowProps) {
           {messages.map((msg, idx) => {
             const isUser = msg.role === "user";
             const showDivider = shouldShowDivider(messages, idx);
-            const isSearchMatch = searchQuery.trim() !== "" &&
-              msg.content.toLowerCase().includes(searchQuery.toLowerCase());
-            const isCurrentSearchMatch =
-              isSearchMatch && searchMatches[currentMatchIndex] === idx;
 
             return (
               <React.Fragment key={msg.id}>
@@ -1019,9 +868,7 @@ export function ChatWindow({ treeData }: ChatWindowProps) {
                   }}
                   className={cn(
                     "group flex gap-3 px-1 py-2 rounded-lg transition-colors",
-                    isUser ? "flex-row-reverse" : "flex-row",
-                    isCurrentSearchMatch && "ring-2 ring-amber-400 rounded-lg",
-                    isSearchMatch && !isCurrentSearchMatch && "ring-1 ring-amber-200 rounded-lg"
+                    isUser ? "flex-row-reverse" : "flex-row"
                   )}
                 >
                   {/* Avatar */}
@@ -1067,16 +914,12 @@ export function ChatWindow({ treeData }: ChatWindowProps) {
                     {/* Message content */}
                     {isUser ? (
                       <p className="whitespace-pre-wrap break-words">
-                        {searchQuery.trim()
-                          ? highlightText(msg.content, searchQuery, isCurrentSearchMatch)
-                          : msg.content}
+                        {msg.content}
                       </p>
                     ) : (
                       <div className="prose prose-sm max-w-none dark:prose-invert">
                         <ReactMarkdown components={markdownComponents}>
-                          {searchQuery.trim()
-                            ? msg.content // Don't highlight inside markdown
-                            : msg.content}
+                          {msg.content}
                         </ReactMarkdown>
                       </div>
                     )}
@@ -1183,13 +1026,6 @@ export function ChatWindow({ treeData }: ChatWindowProps) {
       </ScrollArea>
 
       {/* ================================================================= */}
-      {/* Chat Prompt Quick Bar                                             */}
-      {/* ================================================================= */}
-      {messages.length > 0 && (
-        <ChatPromptBar onQuickAction={handleQuickAction} />
-      )}
-
-      {/* ================================================================= */}
       {/* Context Preview (collapsible)                                     */}
       {/* ================================================================= */}
       {selectedNodes.length > 0 && (
@@ -1258,25 +1094,9 @@ export function ChatWindow({ treeData }: ChatWindowProps) {
       {/* Input Area                                                        */}
       {/* ================================================================= */}
       <div className="border-t px-4 py-3">
-        {/* Quick actions */}
+        {/* Chat Prompt Quick Bar - attached above input */}
         {messages.length > 0 && !isLoading && (
-          <div className="flex flex-wrap gap-1.5 mb-2">
-            {QUICK_ACTIONS.map((action) => {
-              const Icon = action.icon;
-              return (
-                <Button
-                  key={action.label}
-                  variant="outline"
-                  size="sm"
-                  className="h-6 text-[10px] gap-1"
-                  onClick={() => handleQuickAction(action.label)}
-                >
-                  <Icon className="h-3 w-3" />
-                  {action.label}
-                </Button>
-              );
-            })}
-          </div>
+          <ChatPromptBar onQuickAction={handleQuickAction} />
         )}
 
         <div className="flex items-end gap-2">
@@ -1399,9 +1219,7 @@ export function ChatWindow({ treeData }: ChatWindowProps) {
             {[
               { keys: "Enter", desc: "发送消息" },
               { keys: "Shift + Enter", desc: "换行" },
-              { keys: "Ctrl + K", desc: "搜索聊天记录" },
               { keys: "Escape", desc: "停止生成 / 关闭" },
-              { keys: "?", desc: "显示快捷键" },
             ].map((shortcut) => (
               <div key={shortcut.keys} className="flex items-center justify-between">
                 <span className="text-muted-foreground">{shortcut.desc}</span>
