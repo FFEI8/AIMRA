@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useChatStore, getModelDisplayInfo } from "@/lib/chat-store";
-import type { ModelConfig, ChatMessage } from "@/lib/chat-store";
+import type { ModelConfig, ChatMessage, ChatPrompt } from "@/lib/chat-store";
 import { formatSelectedContext } from "@/lib/patient-data";
 import type { TreeNode, CategoryType } from "@/lib/patient-data";
 import { SessionManager } from "@/components/session-manager";
@@ -81,14 +81,13 @@ const CATEGORY_LABEL: Record<CategoryType, string> = {
 // Quick Action Definitions
 // ---------------------------------------------------------------------------
 
-const QUICK_ACTIONS = [
-  { label: "分析病情概况", icon: Stethoscope },
-  { label: "解读异常指标", icon: FlaskConical },
-  { label: "诊疗建议", icon: Brain },
-  { label: "预后评估", icon: FileText },
-  { label: "用药分析", icon: Pill },
-  { label: "鉴别诊断", icon: Sparkles },
-];
+// Prompt category icons
+const PROMPT_CATEGORY_ICONS: Record<string, React.ElementType> = {
+  "分析": FlaskConical,
+  "诊断": Brain,
+  "治疗": Pill,
+  "评估": FileText,
+};
 
 // ---------------------------------------------------------------------------
 // Date Divider Helpers
@@ -199,8 +198,139 @@ function CodeBlock({
 }
 
 // ---------------------------------------------------------------------------
-// Props
+// Empty Chat Placeholder with Chat Prompts
 // ---------------------------------------------------------------------------
+
+function EmptyChatPlaceholder({ onQuickAction }: { onQuickAction: (text: string) => void }) {
+  const chatPrompts = useChatStore((s) => s.chatPrompts);
+
+  // Group by category
+  const groupedPrompts = useMemo(() => {
+    const groups: Record<string, ChatPrompt[]> = {};
+    for (const prompt of chatPrompts) {
+      if (!groups[prompt.category]) groups[prompt.category] = [];
+      groups[prompt.category].push(prompt);
+    }
+    return groups;
+  }, [chatPrompts]);
+
+  const categoryColors: Record<string, string> = {
+    "分析": "border-teal-200 dark:border-teal-800 hover:bg-teal-50 dark:hover:bg-teal-950/30",
+    "诊断": "border-purple-200 dark:border-purple-800 hover:bg-purple-50 dark:hover:bg-purple-950/30",
+    "治疗": "border-amber-200 dark:border-amber-800 hover:bg-amber-50 dark:hover:bg-amber-950/30",
+    "评估": "border-rose-200 dark:border-rose-800 hover:bg-rose-50 dark:hover:bg-rose-950/30",
+  };
+
+  return (
+    <div className="flex flex-col items-center justify-center gap-4 py-12 text-muted-foreground">
+      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400/20 to-teal-500/20">
+        <Bot className="h-8 w-8 text-emerald-500" />
+      </div>
+      <div className="text-center">
+        <p className="font-medium text-foreground">AI 医疗助手</p>
+        <p className="text-sm mt-1">
+          选择左侧病历数据，点击提示词或输入问题开始分析
+        </p>
+      </div>
+      {/* Chat Prompts Grid */}
+      <div className="w-full space-y-3 mt-2">
+        {Object.entries(groupedPrompts).map(([category, prompts]) => {
+          const Icon = PROMPT_CATEGORY_ICONS[category] ?? Sparkles;
+          return (
+            <div key={category}>
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <Icon className="h-3 w-3 text-muted-foreground" />
+                <span className="text-[11px] font-medium text-muted-foreground">{category}</span>
+              </div>
+              <div className="grid grid-cols-2 gap-1.5">
+                {prompts.map((prompt) => (
+                  <Button
+                    key={prompt.id}
+                    variant="outline"
+                    size="sm"
+                    className={cn("h-auto py-2 text-xs gap-1.5 justify-start text-left", categoryColors[prompt.category] ?? "")}
+                    onClick={() => onQuickAction(prompt.content)}
+                  >
+                    {prompt.title}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Chat Prompt Quick Bar (below messages)
+// ---------------------------------------------------------------------------
+
+function ChatPromptBar({ onQuickAction }: { onQuickAction: (text: string) => void }) {
+  const chatPrompts = useChatStore((s) => s.chatPrompts);
+  const [isOpen, setIsOpen] = useState(false);
+
+  const categoryColors: Record<string, string> = {
+    "分析": "text-teal-600 dark:text-teal-400 bg-teal-100 dark:bg-teal-900/40",
+    "诊断": "text-purple-600 dark:text-purple-400 bg-purple-100 dark:bg-purple-900/40",
+    "治疗": "text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40",
+    "评估": "text-rose-600 dark:text-rose-400 bg-rose-100 dark:bg-rose-900/40",
+  };
+
+  if (chatPrompts.length === 0) return null;
+
+  return (
+    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+      <div className="border-t bg-muted/20">
+        <CollapsibleTrigger asChild>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full justify-center gap-1.5 rounded-none py-1 text-xs text-muted-foreground hover:text-foreground h-7"
+          >
+            <Sparkles className="h-3 w-3" />
+            对话提示词
+            <ChevronDown className={cn("h-3 w-3 transition-transform", isOpen && "rotate-180")} />
+          </Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <div className="px-3 pb-2 space-y-2">
+            {(() => {
+              const groups: Record<string, ChatPrompt[]> = {};
+              for (const p of chatPrompts) {
+                if (!groups[p.category]) groups[p.category] = [];
+                groups[p.category].push(p);
+              }
+              return Object.entries(groups).map(([category, prompts]) => (
+                <div key={category} className="space-y-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className={cn("text-[10px] font-medium px-1.5 py-0.5 rounded", categoryColors[category] ?? "text-muted-foreground bg-muted")}>
+                      {category}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {prompts.map((prompt) => (
+                      <Button
+                        key={prompt.id}
+                        variant="outline"
+                        size="sm"
+                        className="h-6 text-[10px] px-2"
+                        onClick={() => onQuickAction(prompt.content)}
+                      >
+                        {prompt.title}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              ));
+            })()}
+          </div>
+        </CollapsibleContent>
+      </div>
+    </Collapsible>
+  );
+}
 
 interface ChatWindowProps {
   treeData: TreeNode;
@@ -860,34 +990,7 @@ export function ChatWindow({ treeData }: ChatWindowProps) {
       <ScrollArea className="flex-1">
         <div className="max-w-3xl mx-auto px-4 py-4 space-y-1">
           {messages.length === 0 && !isLoading && (
-            <div className="flex flex-col items-center justify-center gap-4 py-16 text-muted-foreground">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400/20 to-teal-500/20">
-                <Bot className="h-8 w-8 text-emerald-500" />
-              </div>
-              <div className="text-center">
-                <p className="font-medium text-foreground">AI 医疗助手</p>
-                <p className="text-sm mt-1">
-                  选择左侧病历数据，输入问题开始分析
-                </p>
-              </div>
-              <div className="grid grid-cols-2 gap-2 mt-2">
-                {QUICK_ACTIONS.map((action) => {
-                  const Icon = action.icon;
-                  return (
-                    <Button
-                      key={action.label}
-                      variant="outline"
-                      size="sm"
-                      className="h-8 text-xs gap-1.5"
-                      onClick={() => handleQuickAction(action.label)}
-                    >
-                      <Icon className="h-3.5 w-3.5" />
-                      {action.label}
-                    </Button>
-                  );
-                })}
-              </div>
-            </div>
+            <EmptyChatPlaceholder onQuickAction={handleQuickAction} />
           )}
 
           {messages.map((msg, idx) => {
@@ -1078,6 +1181,13 @@ export function ChatWindow({ treeData }: ChatWindowProps) {
           <div ref={messagesEndRef} />
         </div>
       </ScrollArea>
+
+      {/* ================================================================= */}
+      {/* Chat Prompt Quick Bar                                             */}
+      {/* ================================================================= */}
+      {messages.length > 0 && (
+        <ChatPromptBar onQuickAction={handleQuickAction} />
+      )}
 
       {/* ================================================================= */}
       {/* Context Preview (collapsible)                                     */}

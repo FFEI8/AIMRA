@@ -18,11 +18,10 @@ import {
 } from "lucide-react";
 import { PatientTree } from "@/components/patient-tree";
 import { ChatWindow } from "@/components/chat-window";
-import { SystemPromptPanel } from "@/components/system-prompt";
-import { ModelConfigPanel } from "@/components/model-config";
 import { PatientStatsCard } from "@/components/patient-stats";
 import { RecordDetailDrawer } from "@/components/record-detail-drawer";
 import { ErrorBoundary } from "@/components/error-boundary";
+import { SettingsDropdown } from "@/components/settings-dropdown";
 import { useChatStore } from "@/lib/chat-store";
 import { allPatients, buildPatientTree } from "@/lib/patient-data";
 import { Button } from "@/components/ui/button";
@@ -82,6 +81,7 @@ function PatientInitialWithHover({
 }: {
   patient: (typeof allPatients)[number];
 }) {
+  const isInpatient = patient.status === "inpatient";
   return (
     <HoverCard openDelay={200} closeDelay={100}>
       <HoverCardTrigger asChild>
@@ -98,9 +98,22 @@ function PatientInitialWithHover({
             {patient.basicInfo.name.charAt(0)}
           </div>
           <div>
-            <p className="text-sm font-medium">{patient.basicInfo.name}</p>
+            <div className="flex items-center gap-1.5">
+              <p className="text-sm font-medium">{patient.basicInfo.name}</p>
+              <Badge
+                variant="secondary"
+                className={cn(
+                  "text-[8px] px-1 py-0 h-3.5",
+                  isInpatient
+                    ? "bg-teal-100 text-teal-700 dark:bg-teal-900/50 dark:text-teal-300"
+                    : ""
+                )}
+              >
+                {isInpatient ? "在院" : "出院"}
+              </Badge>
+            </div>
             <p className="text-xs text-muted-foreground">
-              {patient.basicInfo.gender} · {patient.basicInfo.age}岁
+              {patient.basicInfo.gender} · {patient.basicInfo.age}岁 · {patient.basicInfo.department}
             </p>
           </div>
         </div>
@@ -169,6 +182,8 @@ export default function Home() {
     URL.revokeObjectURL(url);
   };
 
+  const isInpatient = currentPatient.status === "inpatient";
+
   return (
     <TooltipProvider delayDuration={300}>
       <div className="h-screen flex flex-col bg-background">
@@ -228,9 +243,14 @@ export default function Home() {
             <div className="hidden sm:flex items-center gap-2 text-xs bg-muted/40 border border-border/50 px-3 py-1.5 rounded-lg">
               {allPatients.length > 1 && (
                 <div className="flex -space-x-1.5">
-                  {allPatients.map((p) => (
+                  {allPatients.slice(0, 5).map((p) => (
                     <PatientInitialWithHover key={p.id} patient={p} />
                   ))}
+                  {allPatients.length > 5 && (
+                    <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center text-[9px] text-muted-foreground">
+                      +{allPatients.length - 5}
+                    </div>
+                  )}
                 </div>
               )}
               <Heart className="h-3 w-3 text-rose-500/70" />
@@ -238,10 +258,17 @@ export default function Home() {
                 {currentPatient.basicInfo.name}
               </span>
               <span className="text-muted-foreground/40">|</span>
-              <span className="text-muted-foreground">
-                {currentPatient.basicInfo.gender}/{currentPatient.basicInfo.age}
-                岁
-              </span>
+              <Badge
+                variant="secondary"
+                className={cn(
+                  "text-[9px] px-1 py-0 h-4",
+                  isInpatient
+                    ? "bg-teal-100 text-teal-700 dark:bg-teal-900/50 dark:text-teal-300"
+                    : ""
+                )}
+              >
+                {isInpatient ? "在院" : "出院"}
+              </Badge>
               <span className="text-muted-foreground/40">|</span>
               <Stethoscope className="h-3 w-3 text-muted-foreground/50" />
               <span className="text-muted-foreground">
@@ -259,6 +286,8 @@ export default function Home() {
                 {currentPatient.basicInfo.name}
               </span>
             </div>
+
+            {/* Export */}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -272,6 +301,11 @@ export default function Home() {
               </TooltipTrigger>
               <TooltipContent>导出对话</TooltipContent>
             </Tooltip>
+
+            {/* Settings dropdown */}
+            <SettingsDropdown />
+
+            {/* Theme toggle */}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -363,8 +397,6 @@ export default function Home() {
           {/* Right panel */}
           <div className="flex-1 flex flex-col min-w-0">
             <ErrorBoundary>
-              <SystemPromptPanel />
-              <ModelConfigPanel />
               <div className="flex-1 overflow-hidden">
                 <ChatWindow treeData={treeData} />
               </div>

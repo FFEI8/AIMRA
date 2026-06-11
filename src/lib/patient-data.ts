@@ -69,8 +69,11 @@ export interface EmrRecord {
   content: string;
 }
 
+export type PatientStatus = "inpatient" | "discharged";
+
 export interface PatientData {
   id: string;
+  status: PatientStatus;
   basicInfo: PatientBasicInfo;
   exams: ExamRecord[];
   labReports: LabReport[];
@@ -85,6 +88,7 @@ export interface PatientData {
 
 const patient001: PatientData = {
   id: "patient-001",
+  status: "discharged",
   basicInfo: {
     name: "林娜萍",
     gender: "女",
@@ -339,6 +343,7 @@ const patient001: PatientData = {
 
 const patient002: PatientData = {
   id: "patient-002",
+  status: "discharged",
   basicInfo: {
     name: "王建国",
     gender: "男",
@@ -531,6 +536,7 @@ const patient002: PatientData = {
 
 const patient003: PatientData = {
   id: "patient-003",
+  status: "inpatient",
   basicInfo: {
     name: "张美华",
     gender: "女",
@@ -680,7 +686,124 @@ const patient003: PatientData = {
   ],
 };
 
-export const allPatients: PatientData[] = [patient001, patient002, patient003];
+const patient004: PatientData = {
+  id: "patient-004",
+  status: "inpatient",
+  basicInfo: {
+    name: "李大明",
+    gender: "男",
+    age: 72,
+    patient_no: "P20240401004",
+    admission_date: "2024-04-01",
+    department: "呼吸内科",
+    bed_no: "03-01",
+    attending_doctor: "孙丽娟",
+    chief_complaint: "反复咳嗽咳痰1个月，伴发热3天",
+  },
+  exams: [
+    { name: "胸部CT", date: "2024-04-01", conclusion: "阳性", findings: "右肺中叶可见实变影，伴支气管充气征。双肺散在磨玻璃影。右侧胸腔少量积液。提示：右肺中叶肺炎，双侧胸腔少量积液。" },
+    { name: "心电图", date: "2024-04-01", conclusion: "阴性", findings: "窦性心律，心率88次/分，各导联ST-T未见明显异常。" },
+  ],
+  labReports: [
+    { name: "血常规", date: "2024-04-01", items: [
+      { name: "白细胞计数", result: "15.2", unit: "×10^9/L", reference_range: "3.5-9.5", flag: "H" },
+      { name: "中性粒细胞比例", result: "85.3", unit: "%", reference_range: "40-75", flag: "H" },
+      { name: "血红蛋白", result: "118", unit: "g/L", reference_range: "130-175", flag: "L" },
+      { name: "C反应蛋白", result: "96.5", unit: "mg/L", reference_range: "0-10", flag: "H" },
+      { name: "降钙素原", result: "1.85", unit: "ng/mL", reference_range: "0-0.05", flag: "H" },
+    ]},
+  ],
+  diagnoses: [
+    { name: "社区获得性肺炎", icd_code: "J18.9" },
+    { name: "2型糖尿病", icd_code: "E11.9" },
+    { name: "高血压病2级", icd_code: "I11.9" },
+    { name: "轻度贫血", icd_code: "D64.9" },
+  ],
+  surgeries: [],
+  emrs: [
+    { title: "入院记录", date: "2024-04-01", doctor: "孙丽娟", content: "患者李大明，男，72岁，因「反复咳嗽咳痰1个月，伴发热3天」入院。患者1个月前受凉后出现咳嗽、咳黄脓痰，伴胸闷气促，3天前出现发热，体温最高38.8℃。既往有2型糖尿病、高血压病史。查体：T 38.5℃，P 92次/分，R 22次/分，BP 145/90mmHg。右肺中叶可闻及湿啰音。入院后予抗感染、化痰、退热等治疗。" },
+  ],
+};
+
+const patient005: PatientData = {
+  id: "patient-005",
+  status: "inpatient",
+  basicInfo: {
+    name: "陈秀英",
+    gender: "女",
+    age: 65,
+    patient_no: "P20240402005",
+    admission_date: "2024-04-02",
+    department: "神经内科",
+    bed_no: "05-03",
+    attending_doctor: "周明华",
+    chief_complaint: "突发左侧肢体无力2小时",
+  },
+  exams: [
+    { name: "头颅CT", date: "2024-04-02", conclusion: "阳性", findings: "右侧基底节区可见低密度灶，边界欠清，脑室系统未见明显扩大。提示：右侧基底节区脑梗死（急性期）。" },
+    { name: "头颅MRI", date: "2024-04-02", conclusion: "阳性", findings: "右侧基底节区、放射冠区可见DWI高信号、ADC低信号灶，提示急性期脑梗死。MRA示右侧大脑中动脉M1段狭窄。" },
+  ],
+  labReports: [
+    { name: "血常规", date: "2024-04-02", items: [
+      { name: "白细胞计数", result: "9.8", unit: "×10^9/L", reference_range: "3.5-9.5", flag: "H" },
+      { name: "血小板计数", result: "198", unit: "×10^9/L", reference_range: "125-350", flag: "" },
+    ]},
+    { name: "凝血功能", date: "2024-04-02", items: [
+      { name: "凝血酶原时间", result: "13.2", unit: "s", reference_range: "11.0-14.5", flag: "" },
+      { name: "D-二聚体", result: "2.15", unit: "mg/L", reference_range: "0-0.5", flag: "H" },
+    ]},
+  ],
+  diagnoses: [
+    { name: "急性脑梗死", icd_code: "I63.9" },
+    { name: "高血压病3级", icd_code: "I11.9" },
+    { name: "心房颤动", icd_code: "I48" },
+    { name: "2型糖尿病", icd_code: "E11.9" },
+  ],
+  surgeries: [],
+  emrs: [
+    { title: "入院记录", date: "2024-04-02", doctor: "周明华", content: "患者陈秀英，女，65岁，因「突发左侧肢体无力2小时」急诊入院。患者2小时前静坐时突感左侧肢体无力，伴言语不清，无意识障碍及抽搐。既往有高血压、房颤、糖尿病史。查体：BP 168/98mmHg，神清，言语含糊，左侧肢体肌力2级，左侧巴氏征阳性。NIHSS评分8分。头颅CT排除出血，诊断急性脑梗死，予阿替普酶静脉溶栓治疗。" },
+  ],
+};
+
+const patient006: PatientData = {
+  id: "patient-006",
+  status: "discharged",
+  basicInfo: {
+    name: "赵伟",
+    gender: "男",
+    age: 48,
+    patient_no: "P20240310006",
+    admission_date: "2024-03-10",
+    department: "骨科",
+    bed_no: "10-02",
+    attending_doctor: "马国栋",
+    chief_complaint: "右膝关节疼痛伴活动受限6个月",
+  },
+  exams: [
+    { name: "膝关节MRI", date: "2024-03-10", conclusion: "阳性", findings: "右膝内侧半月板后角可见线状高信号达关节面，提示半月板撕裂（III级信号）。前交叉韧带信号增粗、信号不均，提示部分撕裂。股骨内侧髁软骨损伤，软骨下骨髓水肿。关节腔积液。" },
+    { name: "膝关节X线", date: "2024-03-10", conclusion: "阳性", findings: "右膝关节间隙内侧变窄，胫骨平台边缘骨质增生，髁间嵴变尖。提示右膝骨性关节炎。" },
+  ],
+  labReports: [
+    { name: "血常规", date: "2024-03-10", items: [
+      { name: "白细胞计数", result: "6.8", unit: "×10^9/L", reference_range: "3.5-9.5", flag: "" },
+      { name: "血红蛋白", result: "145", unit: "g/L", reference_range: "130-175", flag: "" },
+    ]},
+  ],
+  diagnoses: [
+    { name: "右膝半月板损伤", icd_code: "S83.2" },
+    { name: "右膝骨性关节炎", icd_code: "M17.1" },
+    { name: "右膝前交叉韧带损伤", icd_code: "S83.5" },
+  ],
+  surgeries: [
+    { name: "关节镜下半月板修补术", code: "80.86", date: "2024-03-13", surgeon: "马国栋" },
+  ],
+  emrs: [
+    { title: "入院记录", date: "2024-03-10", doctor: "马国栋", content: "患者赵伟，男，48岁，因「右膝关节疼痛伴活动受限6个月」入院。患者6个月前运动后出现右膝关节疼痛，逐渐加重，伴关节弹响及活动受限。MRI提示半月板撕裂、前交叉韧带部分撕裂。行关节镜下半月板修补术，术后恢复良好，已出院。" },
+    { title: "出院小结", date: "2024-03-18", doctor: "马国栋", content: "患者因右膝半月板损伤入院，行关节镜下半月板修补术。术后恢复良好，膝关节活动度改善，疼痛明显减轻。出院医嘱：患肢免负重4周，逐步康复训练，骨科门诊随访。" },
+  ],
+};
+
+export const allPatients: PatientData[] = [patient001, patient002, patient003, patient004, patient005, patient006];
 
 // ============================================================================
 // Tree Building

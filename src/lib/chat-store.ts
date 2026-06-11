@@ -204,6 +204,75 @@ function migrateOldFormat(): ChatSession[] {
 // Store Types
 // ---------------------------------------------------------------------------
 
+export interface ChatPrompt {
+  id: string;
+  title: string;
+  content: string;
+  category: string;
+  isBuiltin: boolean;
+}
+
+export const BUILTIN_CHAT_PROMPTS: ChatPrompt[] = [
+  {
+    id: "prompt-analyze",
+    title: "病情分析",
+    content: "请综合分析该患者的所有病历数据，给出整体病情评估，包括主要诊断、关键异常指标和病情严重程度判断。",
+    category: "分析",
+    isBuiltin: true,
+  },
+  {
+    id: "prompt-abnormal",
+    title: "异常指标解读",
+    content: "请详细解读该患者检验报告中的异常指标，分析各异常指标的临床意义及可能的关联疾病。",
+    category: "分析",
+    isBuiltin: true,
+  },
+  {
+    id: "prompt-diagnosis",
+    title: "鉴别诊断",
+    content: "基于该患者的临床表现和检查结果，请列出主要鉴别诊断及其依据，并分析各诊断的可能性。",
+    category: "诊断",
+    isBuiltin: true,
+  },
+  {
+    id: "prompt-treatment",
+    title: "诊疗建议",
+    content: "基于该患者的完整病历信息，请提供诊疗建议，包括治疗方案优化、进一步检查建议和注意事项。",
+    category: "治疗",
+    isBuiltin: true,
+  },
+  {
+    id: "prompt-prognosis",
+    title: "预后评估",
+    content: "请根据该患者的诊断、检查结果和治疗效果，评估患者的预后情况，包括可能的并发症和风险因素。",
+    category: "评估",
+    isBuiltin: true,
+  },
+  {
+    id: "prompt-medication",
+    title: "用药分析",
+    content: "请分析该患者当前用药方案的合理性，包括药物相互作用、剂量适宜性及可能的调整建议。",
+    category: "治疗",
+    isBuiltin: true,
+  },
+  {
+    id: "prompt-summary",
+    title: "病情总结",
+    content: "请对该患者的整体病情进行系统性总结，突出关键问题和需要关注的重点。",
+    category: "分析",
+    isBuiltin: true,
+  },
+  {
+    id: "prompt-followup",
+    title: "随访计划",
+    content: "请为该患者制定详细的随访计划，包括复查项目、随访频率和注意事项。",
+    category: "评估",
+    isBuiltin: true,
+  },
+];
+
+const STORAGE_KEY_CHAT_PROMPTS = "medical-ai-chat-prompts";
+
 interface ChatStoreState {
   // Sessions
   sessions: ChatSession[];
@@ -218,6 +287,9 @@ interface ChatStoreState {
   // System prompt
   systemPrompt: string;
 
+  // Chat prompts
+  chatPrompts: ChatPrompt[];
+
   // Selection
   selectedNodeIds: Set<string>;
 
@@ -225,6 +297,9 @@ interface ChatStoreState {
   leftPanelOpen: boolean;
   currentPatientId: string | null;
   previewNodeId: string | null;
+  patientFilter: "all" | "inpatient" | "discharged";
+  statsCollapsed: boolean;
+  searchVisible: boolean;
 
   // Model
   modelConfig: ModelConfig;
@@ -243,6 +318,11 @@ interface ChatStoreActions {
   setLoading: (loading: boolean) => void;
   setSystemPrompt: (prompt: string) => void;
 
+  // Chat Prompts
+  addChatPrompt: (prompt: Omit<ChatPrompt, "id" | "isBuiltin">) => void;
+  deleteChatPrompt: (promptId: string) => void;
+  updateChatPrompt: (promptId: string, updates: Partial<ChatPrompt>) => void;
+
   // Selection
   toggleNodeSelection: (nodeId: string) => void;
   selectAllChildren: (nodeIds: string[]) => void;
@@ -255,6 +335,9 @@ interface ChatStoreActions {
   clearChat: () => void;
   setCurrentPatientId: (patientId: string | null) => void;
   setPreviewNodeId: (nodeId: string | null) => void;
+  setPatientFilter: (filter: "all" | "inpatient" | "discharged") => void;
+  setStatsCollapsed: (collapsed: boolean) => void;
+  setSearchVisible: (visible: boolean) => void;
 
   // Model
   setModelConfig: (config: Partial<ModelConfig>) => void;
@@ -262,6 +345,7 @@ interface ChatStoreActions {
   // Internal
   _persistSessions: () => void;
   _persistModelConfig: () => void;
+  _persistChatPrompts: () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -287,6 +371,7 @@ export const useChatStore = create<ChatStoreState & ChatStoreActions>((set, get)
     provider: "default",
     ...MODEL_PRESETS.default,
   } as ModelConfig);
+  const initialChatPrompts = loadFromStorage<ChatPrompt[]>(STORAGE_KEY_CHAT_PROMPTS, BUILTIN_CHAT_PROMPTS);
 
   // Compute messages from current session
   function getMessagesFromSession(sessions: ChatSession[], sessionId: string | null): ChatMessage[] {
@@ -302,10 +387,14 @@ export const useChatStore = create<ChatStoreState & ChatStoreActions>((set, get)
     messages: getMessagesFromSession(initialSessions, initialCurrentSessionId),
     isLoading: false,
     systemPrompt: DEFAULT_SYSTEM_PROMPT,
+    chatPrompts: initialChatPrompts,
     selectedNodeIds: new Set<string>(),
     leftPanelOpen: true,
     currentPatientId: null,
     previewNodeId: null,
+    patientFilter: "all",
+    statsCollapsed: false,
+    searchVisible: true,
     modelConfig: initialModelConfig,
 
     // ---- Session Actions ----
@@ -517,6 +606,35 @@ export const useChatStore = create<ChatStoreState & ChatStoreActions>((set, get)
       set({ previewNodeId: nodeId });
     },
 
+    // ---- Chat Prompt Actions ----
+    addChatPrompt: (prompt) => {
+      const newPrompt: ChatPrompt = {
+        ...prompt,
+        id: generateId(),
+        isBuiltin: false,
+      };
+      set((state) => ({
+        chatPrompts: [...state.chatPrompts, newPrompt],
+      }));
+      get()._persistChatPrompts();
+    },
+
+    deleteChatPrompt: (promptId) => {
+      set((state) => ({
+        chatPrompts: state.chatPrompts.filter((p) => p.id !== promptId || p.isBuiltin),
+      }));
+      get()._persistChatPrompts();
+    },
+
+    updateChatPrompt: (promptId, updates) => {
+      set((state) => ({
+        chatPrompts: state.chatPrompts.map((p) =>
+          p.id === promptId ? { ...p, ...updates } : p
+        ),
+      }));
+      get()._persistChatPrompts();
+    },
+
     // ---- Model Actions ----
     setModelConfig: (config: Partial<ModelConfig>) => {
       set((state) => {
@@ -524,6 +642,19 @@ export const useChatStore = create<ChatStoreState & ChatStoreActions>((set, get)
         return { modelConfig };
       });
       get()._persistModelConfig();
+    },
+
+    // ---- UI Actions ----
+    setPatientFilter: (filter) => {
+      set({ patientFilter: filter });
+    },
+
+    setStatsCollapsed: (collapsed) => {
+      set({ statsCollapsed: collapsed });
+    },
+
+    setSearchVisible: (visible) => {
+      set({ searchVisible: visible });
     },
 
     // ---- Internal Persistence ----
@@ -535,6 +666,11 @@ export const useChatStore = create<ChatStoreState & ChatStoreActions>((set, get)
     _persistModelConfig: () => {
       const { modelConfig } = get();
       saveToStorage(STORAGE_KEY_MODEL, modelConfig);
+    },
+
+    _persistChatPrompts: () => {
+      const { chatPrompts } = get();
+      saveToStorage(STORAGE_KEY_CHAT_PROMPTS, chatPrompts);
     },
   };
 });

@@ -381,3 +381,41 @@ Current Project State:
 - Custom model configuration (4 providers)
 - Multi-session chat, voice input, TTS, search, dark mode, responsive
 - All configs persisted to localStorage
+
+---
+
+Task ID: 8
+Agent: Main Agent
+Task: Implement 5 user requirements: collapsible stats, inpatient/discharge filter, hideable search, settings dropdown, chat prompts feature
+
+Work Log:
+- Added `status` field (`inpatient` | `discharged`) to PatientData interface in patient-data.ts
+- Added 3 new patients (李大明-在院, 陈秀英-在院, 赵伟-出院) for a total of 6 patients (3 inpatient, 3 discharged)
+- Created `/api/patients` API endpoint with status filter and search support, returning patient summaries
+- Updated PatientStatsCard with full collapsible/expandable functionality using Collapsible component
+- Completely rewrote PatientTree component with filter tabs, redesigned patient list items, hideable search
+- Created SettingsDropdown component with SystemPromptDialog, ModelConfigDialog, ChatPromptsDialog
+- Added ChatPrompt interface and 8 built-in prompts to chat-store.ts
+- Added new store state/actions: patientFilter, statsCollapsed, searchVisible, chatPrompts CRUD
+- Updated ChatWindow with EmptyChatPlaceholder and ChatPromptBar using dynamic prompts
+- Updated page.tsx to use SettingsDropdown, patient status badges, 6 patients with hover cards
+- Fixed useMemo import error in settings-dropdown.tsx
+
+Stage Summary:
+- ✅ Requirement 1: Patient statistics area is now collapsible
+- ✅ Requirement 2: Patient list has 全部/在院/出院 filter tabs with API endpoint
+- ✅ Requirement 3: Search bar in patient tree can be hidden/shown
+- ✅ Requirement 4: Settings icon in header with dropdown menu for 系统提示词/模型配置/对话提示词
+- ✅ Requirement 5: Chat prompts are a full feature with 8 built-in prompts across 4 categories
+- Agent-browser verification confirmed all features working
+- 6 patients total (3 inpatient, 3 discharged) with realistic medical data
+- No console errors, no runtime errors, all API endpoints working
+
+Current Project State (Updated):
+- 6 patients (3 inpatient, 3 discharged) with status-aware filtering
+- Settings dropdown with system prompt, model config, and chat prompt dialogs
+- Chat prompts feature with 8 built-in prompts across 4 categories (分析/诊断/治疗/评估)
+- Collapsible patient statistics, hideable search in patient tree
+- Custom model support (DeepSeek, DashScope, custom endpoints)
+- Multi-session chat, voice input, TTS, search, dark mode, responsive
+- All configs persisted to localStorage

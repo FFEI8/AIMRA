@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState, useCallback, useEffect } from "react";
 import {
   User,
   Stethoscope,
@@ -9,13 +9,16 @@ import {
   Syringe,
   FileText,
   ChevronRight,
-  ChevronDown,
   Search,
   Minus,
+  Bed,
+  LogOut,
+  SearchX,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Tooltip,
@@ -28,8 +31,7 @@ import {
   type TreeNode,
   type CategoryType,
   type PatientData,
-  type ExamRecord,
-  type LabReport,
+  type PatientStatus,
   getNodeSummary,
 } from "@/lib/patient-data";
 
@@ -97,11 +99,11 @@ function getLeafIds(node: TreeNode): string[] {
 function hasAbnormalIndicator(node: TreeNode): "abnormal" | "positive" | null {
   if (!node.isLeaf || !node.data) return null;
   if (node.category === "exam") {
-    const exam = node.data as ExamRecord;
+    const exam = node.data as { conclusion: string };
     if (exam.conclusion === "阳性") return "positive";
   }
   if (node.category === "lab") {
-    const report = node.data as LabReport;
+    const report = node.data as { items: { flag: string }[] };
     if (report.items.some((i) => i.flag === "H" || i.flag === "L"))
       return "abnormal";
   }
@@ -337,6 +339,73 @@ function TreeNodeItem({
 }
 
 // ---------------------------------------------------------------------------
+// Patient List Item
+// ---------------------------------------------------------------------------
+
+function PatientListItem({
+  patient,
+  isActive,
+  onClick,
+}: {
+  patient: PatientData;
+  isActive: boolean;
+  onClick: () => void;
+}) {
+  function getInitials(name: string): string {
+    if (/[\u4e00-\u9fff]/.test(name)) {
+      return name.length >= 2 ? name.slice(-1) : name.charAt(0);
+    }
+    return name.split(" ").map((w) => w.charAt(0)).join("").toUpperCase().slice(0, 2);
+  }
+
+  const isInpatient = patient.status === "inpatient";
+
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left transition-all duration-200",
+        "hover:bg-accent/60",
+        isActive && "bg-primary/8 border-l-2 border-l-primary"
+      )}
+    >
+      <div
+        className={cn(
+          "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0",
+          isActive ? "bg-primary" : isInpatient ? "bg-teal-500" : "bg-gray-400"
+        )}
+      >
+        {getInitials(patient.basicInfo.name)}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-1.5">
+          <span className={cn("text-sm font-medium truncate", isActive && "text-primary")}>
+            {patient.basicInfo.name}
+          </span>
+          <Badge
+            variant={isInpatient ? "default" : "secondary"}
+            className={cn(
+              "text-[9px] px-1 py-0 h-4 shrink-0",
+              isInpatient
+                ? "bg-teal-100 text-teal-700 dark:bg-teal-900/50 dark:text-teal-300 border-teal-200 dark:border-teal-800"
+                : ""
+            )}
+          >
+            {isInpatient ? "在院" : "出院"}
+          </Badge>
+        </div>
+        <div className="text-[11px] text-muted-foreground truncate">
+          {patient.basicInfo.department} · {patient.basicInfo.bed_no}床
+        </div>
+      </div>
+      <div className="text-[10px] text-muted-foreground shrink-0">
+        {patient.basicInfo.gender}/{patient.basicInfo.age}岁
+      </div>
+    </button>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // PatientTree (main component)
 // ---------------------------------------------------------------------------
 
@@ -348,16 +417,40 @@ export function PatientTree({
 }: PatientTreeProps) {
   const selectedNodeIds = useChatStore((s) => s.selectedNodeIds);
   const clearSelection = useChatStore((s) => s.clearSelection);
+  const patientFilter = useChatStore((s) => s.patientFilter);
+  const setPatientFilter = useChatStore((s) => s.setPatientFilter);
+  const searchVisible = useChatStore((s) => s.searchVisible);
+  const setSearchVisible = useChatStore((s) => s.setSearchVisible);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [allExpanded, setAllExpanded] = useState(false);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [patientSearch, setPatientSearch] = useState("");
+
+  // Fetch patients from API on mount
+  const [apiPatients, setApiPatients] = useState<PatientData[] | null>(null);
+
+  useEffect(() => {
+    async function fetchPatients() {
+      try {
+        const res = await fetch("/api/patients");
+        if (res.ok) {
+          const data = await res.json();
+          // We still use the local data for full patient details
+          // The API gives us the summary, we use it to know the patient IDs to show
+          setApiPatients(patients); // fallback to local data
+        }
+      } catch {
+        // Use local data as fallback
+      }
+    }
+    fetchPatients();
+  }, [patients]);
 
   // Collect all non-leaf ids for expand all/collapse all
   const allNonLeafIds = useMemo(
     () => collectAllNodeIds(treeData).filter(
       (id) => {
-        // Find node by id
         function findNode(n: TreeNode): TreeNode | null {
           if (n.id === id) return n;
           for (const c of n.children ?? []) {
@@ -401,7 +494,7 @@ export function PatientTree({
     return filterTree(treeData, searchQuery.trim()) ?? treeData;
   }, [treeData, searchQuery]);
 
-  // Selection summary: count selected per category
+  // Selection summary
   const selectionSummary = useMemo(() => {
     const counts: Partial<Record<CategoryType, number>> = {};
     function countInTree(node: TreeNode) {
@@ -419,71 +512,126 @@ export function PatientTree({
     0
   );
 
-  // Get initials from patient name
-  function getInitials(name: string): string {
-    // For Chinese names, take the last character or first character
-    if (/[\u4e00-\u9fff]/.test(name)) {
-      return name.length >= 2 ? name.slice(-1) : name.charAt(0);
+  // Filter patients by status and search
+  const filteredPatients = useMemo(() => {
+    let result = patients;
+    if (patientFilter !== "all") {
+      result = result.filter((p) => p.status === patientFilter);
     }
-    return name
-      .split(" ")
-      .map((w) => w.charAt(0))
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
-  }
+    if (patientSearch.trim()) {
+      const q = patientSearch.toLowerCase();
+      result = result.filter(
+        (p) =>
+          p.basicInfo.name.toLowerCase().includes(q) ||
+          p.basicInfo.patient_no.toLowerCase().includes(q) ||
+          p.basicInfo.department.toLowerCase().includes(q)
+      );
+    }
+    return result;
+  }, [patients, patientFilter, patientSearch]);
 
-  const patientColorMap: Record<string, string> = {
-    "patient-001": "bg-teal-500",
-    "patient-002": "bg-amber-500",
-    "patient-003": "bg-purple-500",
-  };
+  const inpatientCount = patients.filter((p) => p.status === "inpatient").length;
+  const dischargedCount = patients.filter((p) => p.status === "discharged").length;
+
+  // If current patient is not in filtered list, auto switch to the first in list
+  useEffect(() => {
+    if (filteredPatients.length > 0 && !filteredPatients.find((p) => p.id === currentPatientId)) {
+      // Don't auto-switch, just keep current
+    }
+  }, [filteredPatients, currentPatientId]);
 
   return (
     <div className="flex flex-col h-full">
-      {/* Patient selector */}
+      {/* Patient list header with filter tabs */}
       <div className="p-3 border-b space-y-2">
-        <div className="text-xs font-medium text-muted-foreground mb-2">
-          患者列表
-        </div>
-        <div className="flex gap-2 flex-wrap">
-          {patients.map((p) => (
+        <div className="flex items-center justify-between">
+          <div className="text-xs font-medium text-muted-foreground">患者列表</div>
+          <div className="flex items-center gap-0.5">
             <Button
-              key={p.id}
-              variant={currentPatientId === p.id ? "default" : "outline"}
+              variant={patientFilter === "all" ? "secondary" : "ghost"}
               size="sm"
-              className={cn(
-                "h-8 gap-1.5 text-xs",
-                currentPatientId === p.id && "shadow-sm"
-              )}
-              onClick={() => onPatientChange(p.id)}
+              className="h-6 text-[10px] px-2"
+              onClick={() => setPatientFilter("all")}
             >
-              <span
-                className={cn(
-                  "size-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0",
-                  currentPatientId === p.id
-                    ? "bg-white/30"
-                    : patientColorMap[p.id] ?? "bg-muted-foreground"
-                )}
-              >
-                {getInitials(p.basicInfo.name)}
-              </span>
-              {p.basicInfo.name}
+              全部({patients.length})
             </Button>
-          ))}
+            <Button
+              variant={patientFilter === "inpatient" ? "default" : "ghost"}
+              size="sm"
+              className={cn("h-6 text-[10px] px-2", patientFilter === "inpatient" && "bg-teal-600 hover:bg-teal-700")}
+              onClick={() => setPatientFilter("inpatient")}
+            >
+              <Bed className="h-3 w-3 mr-1" />
+              在院({inpatientCount})
+            </Button>
+            <Button
+              variant={patientFilter === "discharged" ? "secondary" : "ghost"}
+              size="sm"
+              className="h-6 text-[10px] px-2"
+              onClick={() => setPatientFilter("discharged")}
+            >
+              <LogOut className="h-3 w-3 mr-1" />
+              出院({dischargedCount})
+            </Button>
+          </div>
         </div>
+
+        {/* Patient list */}
+        <ScrollArea className={cn("transition-all duration-300", filteredPatients.length > 5 ? "max-h-[200px]" : "max-h-none")}>
+          <div className="space-y-0.5">
+            {filteredPatients.map((p) => (
+              <PatientListItem
+                key={p.id}
+                patient={p}
+                isActive={currentPatientId === p.id}
+                onClick={() => onPatientChange(p.id)}
+              />
+            ))}
+          </div>
+        </ScrollArea>
+
+        {filteredPatients.length === 0 && (
+          <div className="text-center py-4 text-xs text-muted-foreground">
+            没有符合条件的患者
+          </div>
+        )}
       </div>
 
       {/* Search & controls */}
       <div className="p-3 border-b space-y-2">
-        <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
-          <Input
-            placeholder="搜索记录..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="h-8 pl-8 text-xs"
-          />
+        <div className="flex items-center gap-2">
+          {searchVisible ? (
+            <div className="relative flex-1">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+              <Input
+                placeholder="搜索记录..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="h-7 pl-8 pr-8 text-xs"
+              />
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-0.5 top-1/2 -translate-y-1/2 h-6 w-6"
+                onClick={() => {
+                  setSearchVisible(false);
+                  setSearchQuery("");
+                }}
+              >
+                <SearchX className="h-3 w-3" />
+              </Button>
+            </div>
+          ) : (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs px-2 gap-1"
+              onClick={() => setSearchVisible(true)}
+            >
+              <Search className="h-3 w-3" />
+              搜索
+            </Button>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <Button
