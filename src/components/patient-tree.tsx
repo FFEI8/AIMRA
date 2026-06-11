@@ -225,7 +225,7 @@ function TreeNodeItem({
         )}
 
         {/* Checkbox */}
-        <div className="relative shrink-0" onClick={handleCheckboxChange}>
+        <div className="relative shrink-0">
           <Checkbox
             checked={isLeaf ? isSelected : allSelected ? true : someSelected ? "indeterminate" : false}
             onCheckedChange={handleCheckboxChange}

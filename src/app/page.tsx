@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import {
   Menu,
   Activity,
@@ -16,7 +16,6 @@ import {
 } from "lucide-react";
 import { PatientTree } from "@/components/patient-tree";
 import { ChatWindow } from "@/components/chat-window";
-import { PatientStatsCard } from "@/components/patient-stats";
 import { RecordDetailDrawer } from "@/components/record-detail-drawer";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { SettingsDropdown } from "@/components/settings-dropdown";
@@ -81,6 +80,47 @@ export default function Home() {
   const isMobile = useIsMobile();
   const { theme, setTheme } = useTheme();
   const [toggleHovered, setToggleHovered] = useState(false);
+
+  // Draggable panel width
+  const [leftPanelWidth, setLeftPanelWidth] = useState(340);
+  const isDragging = useRef(false);
+  const dragStartX = useRef(0);
+  const dragStartWidth = useRef(0);
+  const MIN_PANEL_WIDTH = 240;
+  const MAX_PANEL_WIDTH = 600;
+
+  const handleDragStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isDragging.current = true;
+    dragStartX.current = e.clientX;
+    dragStartWidth.current = leftPanelWidth;
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+  }, [leftPanelWidth]);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDragging.current) return;
+      const delta = e.clientX - dragStartX.current;
+      const newWidth = Math.min(MAX_PANEL_WIDTH, Math.max(MIN_PANEL_WIDTH, dragStartWidth.current + delta));
+      setLeftPanelWidth(newWidth);
+    };
+
+    const handleMouseUp = () => {
+      if (isDragging.current) {
+        isDragging.current = false;
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+      }
+    };
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, []);
 
   // Hydrate store from localStorage after mount (prevents SSR/client mismatch)
   useEffect(() => {
@@ -238,16 +278,16 @@ export default function Home() {
           {!isMobile && (
             <>
               <div
-                className="flex-shrink-0 border-r flex flex-col bg-background transition-all duration-300 ease-in-out overflow-hidden"
+                className="flex-shrink-0 border-r flex flex-col bg-background overflow-hidden"
                 style={{
-                  width: leftPanelOpen ? "340px" : "0px",
+                  width: leftPanelOpen ? `${leftPanelWidth}px` : "0px",
                   opacity: leftPanelOpen ? 1 : 0,
+                  transition: isDragging.current ? "opacity 0.3s" : "width 0.3s ease-in-out, opacity 0.3s ease-in-out",
                 }}
               >
                 {leftPanelOpen && (
                   <ErrorBoundary>
                     <div className="flex flex-col h-full">
-                      <PatientStatsCard patient={currentPatient} />
                       <PatientTree
                         treeData={treeData}
                         patients={allPatients}
@@ -258,11 +298,28 @@ export default function Home() {
                   </ErrorBoundary>
                 )}
               </div>
+              {/* Draggable resize handle + toggle button */}
+              {leftPanelOpen && (
+                <div
+                  className="flex-shrink-0 w-1.5 hover:w-2 flex items-center justify-center cursor-col-resize group relative z-10 transition-all duration-150"
+                  style={{
+                    background: "transparent",
+                  }}
+                  onMouseDown={handleDragStart}
+                >
+                  {/* Visual grip indicator */}
+                  <div className="absolute inset-y-0 left-0 right-0 flex items-center justify-center">
+                    <div className={cn(
+                      "w-0.5 h-8 rounded-full bg-border group-hover:bg-primary/40 group-hover:h-12 transition-all duration-150"
+                    )} />
+                  </div>
+                </div>
+              )}
               <div
                 className="absolute top-1/2 -translate-y-1/2 z-10"
                 style={{
-                  left: leftPanelOpen ? "340px" : "0",
-                  transition: "left 300ms ease-in-out",
+                  left: leftPanelOpen ? `${leftPanelWidth + (leftPanelOpen ? 6 : 0)}px` : "0",
+                  transition: isDragging.current ? "none" : "left 0.3s ease-in-out",
                 }}
               >
                 <Button

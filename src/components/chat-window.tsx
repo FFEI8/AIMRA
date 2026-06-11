@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useChatStore, getModelDisplayInfo, formatRelativeTime } from "@/lib/chat-store";
-import type { ModelConfig, ChatMessage, ChatPrompt } from "@/lib/chat-store";
+import type { ModelConfig, ChatMessage } from "@/lib/chat-store";
 import { formatSelectedContext } from "@/lib/patient-data";
 import type { TreeNode, CategoryType } from "@/lib/patient-data";
 import { SessionManager } from "@/components/session-manager";
@@ -55,10 +55,6 @@ import {
   AlertTriangle,
   Sparkles,
   Stethoscope,
-  Brain,
-  FlaskConical,
-  Pill,
-  FileText,
   Loader2,
   Keyboard,
 } from "lucide-react";
@@ -91,16 +87,8 @@ const CATEGORY_LABEL: Record<CategoryType, string> = {
 };
 
 // ---------------------------------------------------------------------------
-// Quick Action Definitions
+// Quick Action Definitions (unused after simplification, kept for future reference)
 // ---------------------------------------------------------------------------
-
-// Prompt category icons
-const PROMPT_CATEGORY_ICONS: Record<string, React.ElementType> = {
-  "分析": FlaskConical,
-  "诊断": Brain,
-  "治疗": Pill,
-  "评估": FileText,
-};
 
 // ---------------------------------------------------------------------------
 // Date Divider Helpers
@@ -211,87 +199,18 @@ function CodeBlock({
 }
 
 // ---------------------------------------------------------------------------
-// Empty Chat Placeholder with Chat Prompts
+// Empty Chat Placeholder (minimalist idle state)
 // ---------------------------------------------------------------------------
 
-function EmptyChatPlaceholder({ onQuickAction }: { onQuickAction: (text: string) => void }) {
-  const chatPrompts = useChatStore((s) => s.chatPrompts);
-
-  const categoryDotColors: Record<string, string> = {
-    "分析": "bg-teal-500",
-    "诊断": "bg-purple-500",
-    "治疗": "bg-amber-500",
-    "评估": "bg-rose-500",
-  };
-
-  // Group by category for sectioned display
-  const groupedPrompts = useMemo(() => {
-    const groups: Record<string, ChatPrompt[]> = {};
-    for (const prompt of chatPrompts) {
-      if (!groups[prompt.category]) groups[prompt.category] = [];
-      groups[prompt.category].push(prompt);
-    }
-    return groups;
-  }, [chatPrompts]);
-
+function EmptyChatPlaceholder() {
   return (
-    <div className="flex flex-col gap-4 py-6 px-2 rounded-xl bg-gradient-to-b from-muted/30 to-transparent">
-      {/* Minimalist header with animated icon */}
-      <div className="flex items-center gap-2.5 text-muted-foreground">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500/15 to-teal-500/10 shadow-sm animate-[gradientShift_4s_ease-in-out_infinite]">
-          <Stethoscope className="h-4.5 w-4.5 text-emerald-500" />
-        </div>
-        <div>
-          <p className="text-sm font-medium text-foreground">选择病历数据，开始智能分析</p>
-          <p className="text-xs text-muted-foreground">点击提示词快速提问，或输入自定义问题</p>
-        </div>
+    <div className="flex flex-col items-center justify-center gap-3 py-12 text-muted-foreground/60">
+      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500/10 to-teal-500/5 shadow-sm">
+        <Stethoscope className="h-6 w-6 text-emerald-500/60" />
       </div>
-
-      {/* Subtle divider */}
-      <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
-
-      {/* Quick prompts - horizontal rows by category */}
-      <div className="w-full space-y-2.5">
-        {Object.entries(groupedPrompts).map(([category, prompts]) => {
-          const Icon = PROMPT_CATEGORY_ICONS[category] ?? Sparkles;
-          return (
-            <div key={category}>
-              <div className="flex items-center gap-1.5 mb-1">
-                <Icon className="h-3 w-3 text-muted-foreground" />
-                <span className={cn(
-                  "text-[10px] font-medium px-1.5 py-0.5 rounded",
-                  category === "分析" ? "text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/30" :
-                  category === "诊断" ? "text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/30" :
-                  category === "治疗" ? "text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30" :
-                  category === "评估" ? "text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/30" :
-                  "text-muted-foreground bg-muted"
-                )}>
-                  {category}
-                </span>
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {prompts.map((prompt) => (
-                  <Tooltip key={prompt.id}>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-7 text-[11px] px-2.5 rounded-full gap-1.5 transition-all duration-200 hover:scale-[1.04] hover:shadow-sm active:scale-[0.98]"
-                        onClick={() => onQuickAction(prompt.content)}
-                      >
-                        <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", categoryDotColors[prompt.category] ?? "bg-muted-foreground")} />
-                        {prompt.title}
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" className="max-w-xs">
-                      <p className="text-xs">{prompt.content}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                ))}
-              </div>
-            </div>
-          );
-        })}
+      <div className="text-center">
+        <p className="text-sm font-medium text-muted-foreground/80 tracking-wide">AI 医疗助手</p>
+        <p className="text-xs text-muted-foreground/50 mt-1">选择病历数据，在下方输入或点击提示词开始对话</p>
       </div>
     </div>
   );
@@ -315,19 +234,17 @@ function ChatPromptBar({ onQuickAction }: { onQuickAction: (text: string) => voi
 
   return (
     <div className="flex items-center gap-1.5 pb-2 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-      <Sparkles className="h-3 w-3 shrink-0 text-muted-foreground" />
+      <Sparkles className="h-3 w-3 shrink-0 text-muted-foreground/60" />
       {chatPrompts.map((prompt) => (
         <Tooltip key={prompt.id}>
           <TooltipTrigger asChild>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 text-[11px] px-2.5 rounded-full shrink-0 gap-1.5"
+            <button
+              className="inline-flex items-center gap-1.5 h-7 text-[11px] px-2.5 rounded-full border border-dashed border-border/80 hover:border-primary/50 hover:bg-primary/5 shrink-0 transition-all duration-200 text-muted-foreground hover:text-foreground active:scale-[0.97]"
               onClick={() => onQuickAction(prompt.content)}
             >
               <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", categoryDotColors[prompt.category] ?? "bg-muted-foreground")} />
               {prompt.title}
-            </Button>
+            </button>
           </TooltipTrigger>
           <TooltipContent side="top" className="max-w-xs">
             <p className="text-xs">{prompt.content}</p>
@@ -843,7 +760,7 @@ export function ChatWindow({ treeData }: ChatWindowProps) {
       <ScrollArea className="flex-1">
         <div className="max-w-3xl mx-auto px-4 py-4 space-y-1">
           {messages.length === 0 && !isLoading && (
-            <EmptyChatPlaceholder onQuickAction={handleQuickAction} />
+            <EmptyChatPlaceholder />
           )}
 
           {messages.map((msg, idx) => {
@@ -1104,8 +1021,8 @@ export function ChatWindow({ treeData }: ChatWindowProps) {
       {/* Input Area                                                        */}
       {/* ================================================================= */}
       <div className="border-t px-4 py-3">
-        {/* Chat Prompt Quick Bar - attached above input */}
-        {messages.length > 0 && !isLoading && (
+        {/* Chat Prompt Quick Bar - always visible above input */}
+        {!isLoading && (
           <ChatPromptBar onQuickAction={handleQuickAction} />
         )}
 

@@ -298,9 +298,6 @@ interface ChatStoreState {
   currentPatientId: string | null;
   previewNodeId: string | null;
   patientFilter: "all" | "inpatient" | "discharged";
-  statsCollapsed: boolean;
-  searchVisible: boolean;
-
   // Model
   modelConfig: ModelConfig;
 
@@ -339,9 +336,6 @@ interface ChatStoreActions {
   setCurrentPatientId: (patientId: string | null) => void;
   setPreviewNodeId: (nodeId: string | null) => void;
   setPatientFilter: (filter: "all" | "inpatient" | "discharged") => void;
-  setStatsCollapsed: (collapsed: boolean) => void;
-  setSearchVisible: (visible: boolean) => void;
-
   // Model
   setModelConfig: (config: Partial<ModelConfig>) => void;
 
@@ -391,8 +385,6 @@ export const useChatStore = create<ChatStoreState & ChatStoreActions>((set, get)
     currentPatientId: null,
     previewNodeId: null,
     patientFilter: "all",
-    statsCollapsed: false,
-    searchVisible: true,
     modelConfig: DEFAULT_MODEL_CONFIG,
     _hasHydrated: false,
 
@@ -676,14 +668,6 @@ export const useChatStore = create<ChatStoreState & ChatStoreActions>((set, get)
     // ---- UI Actions ----
     setPatientFilter: (filter) => {
       set({ patientFilter: filter });
-    },
-
-    setStatsCollapsed: (collapsed) => {
-      set({ statsCollapsed: collapsed });
-    },
-
-    setSearchVisible: (visible) => {
-      set({ searchVisible: visible });
     },
 
     // ---- Internal Persistence ----

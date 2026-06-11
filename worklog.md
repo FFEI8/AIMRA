@@ -2,6 +2,42 @@
 
 ---
 
+Task ID: 13
+Agent: Main Agent
+Task: 3 major changes: delete patient-stats, optimize chat window UI, fix drawer single-select bug
+
+Work Log:
+- **Task 1 - Delete Patient Stats Card**: Deleted `src/components/patient-stats.tsx`, removed import and usage from `page.tsx`, cleaned up `statsCollapsed`/`setStatsCollapsed` and `searchVisible`/`setSearchVisible` from `chat-store.ts`
+- **Task 2 - Optimize Chat Window UI**:
+  - Simplified `EmptyChatPlaceholder` to a minimalist idle state (icon + text only)
+  - Moved `ChatPromptBar` to always show above input area (not just when messages exist)
+  - Redesigned prompt buttons with `border-dashed rounded-full` style
+  - Implemented draggable panel divider between left panel and chat area
+  - Added `leftPanelWidth` state with min 240px / max 600px bounds
+  - Drag handle with visual grip indicator that expands on hover
+  - Cleaned up unused imports: `PROMPT_CATEGORY_ICONS`, `ChatPrompt` type, `FileText`, `Brain`, `FlaskConical`, `Pill`
+- **Task 3 - Fix Drawer Single-Select Bug**:
+  - Fixed double-click bug in `patient-tree.tsx`: removed `onClick={handleCheckboxChange}` from wrapper div (was firing alongside `onCheckedChange` on Checkbox, causing toggle-twice cancel)
+  - Added individual lab item selection in `record-detail-drawer.tsx`:
+    - `LabDetailView` now supports `onAddItem` callback for single-item selection
+    - Added checkboxes to each table row for selecting individual lab items
+    - Added "添加选中项到上下文" button when items are selected
+    - Selected rows get visual highlight with `ring-1 ring-primary/30`
+  - Fixed `currentPatientId` null fallback in drawer (was causing drawer to show empty state)
+  - Added accessibility: sr-only SheetTitle and SheetDescription
+  - Removed unused `LabItem` type import
+- Browser verification: all 6 checks passed after fixes
+
+Stage Summary:
+- Patient stats card fully removed from project
+- Chat window now shows prompts in horizontal dashed-border style above input when idle
+- Panel divider is draggable for resizing left panel (240-600px)
+- Checkbox single-select works correctly (no more double-click bug)
+- Lab report drawer supports individual item selection
+- ESLint passes, dev server compiles successfully
+
+---
+
 ## Task 1-a: Recreate Core Data Layer and Chat Store
 
 **Date**: 2026-03-05

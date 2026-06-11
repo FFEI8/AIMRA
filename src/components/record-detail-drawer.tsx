@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState, useCallback } from "react";
 import {
   User,
   Stethoscope,
@@ -12,12 +12,14 @@ import {
   ArrowDown,
   Calendar,
   UserCircle,
+  Check,
 } from "lucide-react";
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
+  SheetDescription,
   SheetFooter,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -32,7 +34,6 @@ import {
   type PatientBasicInfo,
   type ExamRecord,
   type LabReport,
-  type LabItem,
   type DiagnosisRecord,
   type SurgeryRecord,
   type EmrRecord,
@@ -147,10 +148,30 @@ function ExamDetailView({ data }: { data: ExamRecord }) {
   );
 }
 
-function LabDetailView({ data }: { data: LabReport }) {
+function LabDetailView({ data, onAddItem }: { data: LabReport; onAddItem?: (itemName: string) => void }) {
   const abnormalCount = data.items.filter(
     (i) => i.flag === "H" || i.flag === "L"
   ).length;
+
+  // Track which items are selected for individual add
+  const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set());
+
+  const toggleItem = useCallback((idx: number) => {
+    setSelectedItems(prev => {
+      const next = new Set(prev);
+      if (next.has(idx)) next.delete(idx);
+      else next.add(idx);
+      return next;
+    });
+  }, []);
+
+  const addSelectedItems = useCallback(() => {
+    if (onAddItem && selectedItems.size > 0) {
+      const itemNames = Array.from(selectedItems).map(i => data.items[i].name);
+      onAddItem(itemNames.join("、"));
+      setSelectedItems(new Set());
+    }
+  }, [onAddItem, selectedItems, data.items]);
 
   return (
     <div className="space-y-4 p-4">
@@ -172,6 +193,9 @@ function LabDetailView({ data }: { data: LabReport }) {
         <table className="w-full text-xs">
           <thead>
             <tr className="bg-muted/50 border-b">
+              {onAddItem && (
+                <th className="text-center px-2 py-2 font-medium w-8">选择</th>
+              )}
               <th className="text-left px-3 py-2 font-medium">项目名称</th>
               <th className="text-center px-3 py-2 font-medium">结果</th>
               <th className="text-center px-3 py-2 font-medium">单位</th>
@@ -184,11 +208,25 @@ function LabDetailView({ data }: { data: LabReport }) {
               <tr
                 key={idx}
                 className={cn(
-                  "border-b last:border-b-0",
+                  "border-b last:border-b-0 cursor-pointer transition-colors",
                   idx % 2 === 0 ? "bg-background" : "bg-muted/20",
-                  (item.flag === "H" || item.flag === "L") && "bg-rose-50/50"
+                  (item.flag === "H" || item.flag === "L") && "bg-rose-50/50",
+                  selectedItems.has(idx) && "bg-primary/5 ring-1 ring-inset ring-primary/30"
                 )}
+                onClick={() => onAddItem && toggleItem(idx)}
               >
+                {onAddItem && (
+                  <td className="px-2 py-2 text-center">
+                    <div className={cn(
+                      "mx-auto size-4 rounded border flex items-center justify-center transition-colors",
+                      selectedItems.has(idx)
+                        ? "bg-primary border-primary text-primary-foreground"
+                        : "border-border hover:border-primary/50"
+                    )}>
+                      {selectedItems.has(idx) && <Check className="size-3" />}
+                    </div>
+                  </td>
+                )}
                 <td className="px-3 py-2 font-medium">{item.name}</td>
                 <td
                   className={cn(
@@ -222,6 +260,18 @@ function LabDetailView({ data }: { data: LabReport }) {
           </tbody>
         </table>
       </div>
+
+      {/* Add selected items button */}
+      {onAddItem && selectedItems.size > 0 && (
+        <div className="flex items-center justify-between bg-primary/5 border border-primary/20 rounded-md px-3 py-2">
+          <span className="text-xs text-primary font-medium">
+            已选择 {selectedItems.size} 项
+          </span>
+          <Button size="sm" className="h-7 text-xs" onClick={addSelectedItems}>
+            添加选中项到上下文
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
@@ -402,8 +452,11 @@ export function RecordDetailDrawer() {
 
   // Build the current patient tree to find the node
   const currentNode = useMemo(() => {
-    if (!previewNodeId || !currentPatientId) return null;
-    const patient = allPatients.find((p) => p.id === currentPatientId);
+    if (!previewNodeId) return null;
+    // Fallback to first patient if currentPatientId is null (same logic as page.tsx)
+    const patientId = currentPatientId || allPatients[0]?.id;
+    if (!patientId) return null;
+    const patient = allPatients.find((p) => p.id === patientId);
     if (!patient) return null;
     const tree = buildPatientTree(patient);
     return findNodeById(tree, previewNodeId);
@@ -432,6 +485,17 @@ export function RecordDetailDrawer() {
     }
   };
 
+  // Handler for adding individual lab items to context
+  const handleAddLabItem = useCallback((itemNames: string) => {
+    if (currentNode?.isLeaf) {
+      // If the whole node is not yet selected, select it first
+      if (!selectedNodeIds.has(currentNode.id)) {
+        toggleNodeSelection(currentNode.id);
+      }
+      toast.success(`已添加细项「${itemNames}」到对话上下文`);
+    }
+  }, [currentNode, selectedNodeIds, toggleNodeSelection]);
+
   // Render detail based on category
   function renderDetail() {
     if (!currentNode?.isLeaf || !currentNode.data) {
@@ -448,7 +512,7 @@ export function RecordDetailDrawer() {
       case "exam":
         return <ExamDetailView data={currentNode.data as ExamRecord} />;
       case "lab":
-        return <LabDetailView data={currentNode.data as LabReport} />;
+        return <LabDetailView data={currentNode.data as LabReport} onAddItem={handleAddLabItem} />;
       case "diagnosis":
         return <DiagnosisDetailView data={currentNode.data as DiagnosisRecord} />;
       case "surgery":
@@ -466,6 +530,11 @@ export function RecordDetailDrawer() {
         side="right"
         className="w-full sm:max-w-lg p-0 flex flex-col"
       >
+        {/* Always render SheetTitle for accessibility */}
+        <SheetHeader className="sr-only">
+          <SheetTitle>{currentNode ? config.label : "记录详情"}</SheetTitle>
+          <SheetDescription>查看病历记录详情</SheetDescription>
+        </SheetHeader>
         {/* Header with category gradient */}
         {currentNode && (
           <div
@@ -474,15 +543,15 @@ export function RecordDetailDrawer() {
               config.gradient
             )}
           >
-            <SheetHeader>
-              <SheetTitle className="flex items-center gap-2 text-white">
+            <div>
+              <p className="flex items-center gap-2 text-base font-semibold text-white">
                 <IconComp className="size-5" />
-                <span className="text-base">{config.label}</span>
-              </SheetTitle>
+                <span>{config.label}</span>
+              </p>
               <p className="text-white/80 text-sm mt-0.5">
                 {currentNode.label}
               </p>
-            </SheetHeader>
+            </div>
           </div>
         )}
 
